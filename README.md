@@ -28,6 +28,9 @@ https://www.vogons.org/viewtopic.php?t=93291
   - "python chipsec_main.py -m common.lpc_dma_h81_z390_test"
 - *Tests work, but might crash your system.*
 
+## Extras
+- Datasheets, Documents, Pin Mappings.
+
 ## Thanks
 - Everyone at Vogons, seriously thanks.
 - Absolute Legend #1, #2, and #3. [Names redacted to protect their jobs]
