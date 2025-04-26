@@ -19,6 +19,10 @@ https://www.vogons.org/viewtopic.php?t=93291
 - Last resort, given to me by an absolute legend.
 - *Boilerplate implementation*
 
+## GRUB
+- It's possible to configure PCI bridges using GRUB, avoiding the need for DXE Drivers or ACPI SSDT. 
+- Requires GRUB and potentially turning off secure boot. 
+
 ## CHIPSEC
 - Various LPC DMA tests with CHIPSEC
 - Scripts get placed in 'chipsec-1.13.11\chipsec\modules\common'
