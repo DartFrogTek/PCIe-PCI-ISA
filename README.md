@@ -19,6 +19,15 @@ https://www.vogons.org/viewtopic.php?t=93291
 - Last resort, given to me by an absolute legend.
 - *Boilerplate implementation*
 
+## CHIPSEC
+- Various LPC DMA tests with CHIPSEC
+- Scripts get placed in 'chipsec-1.13.11\chipsec\modules\common'
+- Tests are ran with:
+  - "python chipsec_main.py -m common.lpc_dma_check"
+  - "python chipsec_main.py -m common.lpc_dma_z390_test"
+  - "python chipsec_main.py -m common.lpc_dma_h81_z390_test"
+- *Tests work, but might crash your system.*
+
 ## Thanks
 - Everyone at Vogons, seriously thanks.
 - Absolute Legend #1, #2, and #3. [Names redacted to protect their jobs]
