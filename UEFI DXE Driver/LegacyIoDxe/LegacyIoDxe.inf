@@ -1,0 +1,28 @@
+[Defines]
+    INF_VERSION = 0x00010005
+    BASE_NAME = LegacyIoDxe
+    FILE_GUID = F1234567-B456-C789-D012-E3456789ABCD
+    MODULE_TYPE = DXE_DRIVER
+    VERSION_STRING = 1.0
+    ENTRY_POINT = LegacyIoDxeDriverEntryPoint
+
+[Sources]
+    LegacyIoDxe.c
+    LegacyIoProtocol.h
+
+[Packages]
+    MdePkg/MdePkg.dec
+
+[LibraryClasses]
+    UefiDriverEntryPoint
+    UefiBootServicesTableLib
+    DebugLib
+    IoLib
+    MemoryAllocationLib
+
+[Protocols]
+    gLegacyIoProtocolGuid ## PRODUCES
+    gEfiPciRootBridgeIoProtocolGuid ## CONSUMES
+
+[Depex]
+    gEfiPciRootBridgeIoProtocolGuid

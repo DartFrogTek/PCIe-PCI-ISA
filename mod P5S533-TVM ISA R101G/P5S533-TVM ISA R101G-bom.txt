@@ -1,0 +1,110 @@
+
+UnitID           ListNumber ComponentType                  UnitDetails                   
+------           ---------- -------------                  -----------                   
+U30              10         FLASH WINBOND W39V040CPZ       4M-11 PLCC32                  
+PQ15             20         N-MOSFET AP70T03GJ      TO-251 APEC                     <G>  
+PQ16             20         N-MOSFET AP70T03GJ      TO-251 APEC                     <G>  
+PQ3              20         N-MOSFET AP70T03GJ      TO-251 APEC                     <G>  
+PQ4              20         N-MOSFET AP70T03GJ      TO-251 APEC                     <G>  
+32PF/30PPM  <G>0 30         XTAL 12 MHZ DIP 49US           TXC/9B12000143                
+X5               40         XTAL 24.576MHZ 49US 16PF/30PPM TXC/9B24500327                
+X6               50         XTAL 25 MHZ DIP 49US 20PF/30PP TXC/9B25000291           <G>  
+X7               60         XTAL 32.768KHZ DIP 3*8         KDS/DT-38  12.5PF/20PPM    <G>
+X10              70         XTAL 14.31818MHZ DIP HC-49/S   TXC/9B14300593  20PF/20PPM <G>
+SB_PWR1          80         LED GREEN 3D 3.2mm DIP         PARALIGHT/L-314GD-3.2-HTS  <G>
+BATTERY1         90         BATT-LI KTS BBBCR2032BA        CR2032 3V/220mAh           <G 
+PL1              100        CHOKE??0.4UH/25A R5X15 1.6?p   EMC/AK1515140042A-R40MU-PT    
+PL4              110        CHOKE 0.4UH/30A 5053 0.9?r*3   EMC/AP105019004G-R40MU-PT??<G>
+PL2              120        CHOKE?? 0.4UH/30A 5053 0.9*3   TRIO/LG-40BM11J12             
+PL3              120        CHOKE?? 0.4UH/30A 5053 0.9*3   TRIO/LG-40BM11J12             
+PL5              120        CHOKE?? 0.4UH/30A 5053 0.9*3   TRIO/LG-40BM11J12             
+BUZZER1          130        BUZZER/5V 2400HZ 87DB          HUA-JIE/PAC-WT-1205-7         
+CE42             140        CAP EL 10U/25V 4*5 DIP-T       GSC/ECSS100M0250405EBC     <G>
+CE3              150        CAP EL 100UF/16V 5*11 DIP-T    PANASONIC/ECA1CMH101CY   <G>  
+CE31             150        CAP EL 100UF/16V 5*11 DIP-T    PANASONIC/ECA1CMH101CY   <G>  
+CE32             150        CAP EL 100UF/16V 5*11 DIP-T    PANASONIC/ECA1CMH101CY   <G>  
+CE40             150        CAP EL 100UF/16V 5*11 DIP-T    PANASONIC/ECA1CMH101CY   <G>  
+CE41             150        CAP EL 100UF/16V 5*11 DIP-T    PANASONIC/ECA1CMH101CY   <G>  
+PCE58            150        CAP EL 100UF/16V 5*11 DIP-T    PANASONIC/ECA1CMH101CY   <G>  
+PCE59            150        CAP EL 100UF/16V 5*11 DIP-T    PANASONIC/ECA1CMH101CY   <G>  
+PCE1             160        CAP EL 1000U/16V 8*20 DIP-T    PANASONIC/EEUFL1C102YY    <G> 
+PCE2             160        CAP EL 1000U/16V 8*20 DIP-T    PANASONIC/EEUFL1C102YY    <G> 
+PCE22            160        CAP EL 1000U/16V 8*20 DIP-T    PANASONIC/EEUFL1C102YY    <G> 
+PCE9             160        CAP EL 1000U/16V 8*20 DIP-T    PANASONIC/EEUFL1C102YY    <G> 
+PCE50            170        CAP EL 330UF/6.3V 6.3*11 DIP-T CHEMICON/KZE6.3VB330MF11CCE0<G
+PCE10            180        CAP EL 680UF/4V 8*9 DIP-T      PANASONIC/EEYFLG681SCG        
+PCE11            180        CAP EL 680UF/4V 8*9 DIP-T      PANASONIC/EEYFLG681SCG        
+PCE23            180        CAP EL 680UF/4V 8*9 DIP-T      PANASONIC/EEYFLG681SCG        
+CE16             190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+CE2              190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+CE35             190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+CE47             190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+CE56             190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+CE58             190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+CE7              190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+PCE38            190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+PCE42            190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+PCE44            190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+PCE45            190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+PCE46            190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+PCE47            190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+PCE49            190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+PCE51            190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+PCE54            190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+PCE55            190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+PCE56            190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+PCE6             190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+PCE7             190        CAP EL 820UF/6.3V 8*11.5 20%   TOSHIN/0JATWYFC821M0F11       
+PCE12            200        CAP PL 820UF/2.5V 8*8 DIP-T    CHEMICON/PSC2.5VB820MCH08E10<G
+PCE13            200        CAP PL 820UF/2.5V 8*8 DIP-T    CHEMICON/PSC2.5VB820MCH08E10<G
+PCE14            200        CAP PL 820UF/2.5V 8*8 DIP-T    CHEMICON/PSC2.5VB820MCH08E10<G
+PCE16            200        CAP PL 820UF/2.5V 8*8 DIP-T    CHEMICON/PSC2.5VB820MCH08E10<G
+PCE17            200        CAP PL 820UF/2.5V 8*8 DIP-T    CHEMICON/PSC2.5VB820MCH08E10<G
+PCE18            200        CAP PL 820UF/2.5V 8*8 DIP-T    CHEMICON/PSC2.5VB820MCH08E10<G
+DIMM1            210        DDR DIMM 184P,2.5V,NY,G/F,BK   TYCO/1734003-1                
+DIMM2            210        DDR DIMM 184P,2.5V,NY,G/F,BK   TYCO/1734003-1                
+ISA1             220        ISA BUS SLOT 98P 2.54mm G/F    STARLINK/108057-101           
+PCI1             230        SLOT 120P G/F NYLON            SUYIN/127226FS120S205PO    <G>
+PCI2             230        SLOT 120P G/F NYLON            SUYIN/127226FS120S205PO    <G>
+AGP1             240        SLOT 124P AGP 1.5V G/F NY,AIMM FOXCONN/EE0621F-AEB        <G>
+CLRTC1:23        250        MINI JUMPER CLOSE BLUE         PINREX/200-71-PAGU00       <G>
+FP_AUD:56        250        MINI JUMPER CLOSE BLUE         PINREX/200-71-PAGU00       <G>
+FP_AUD:9A0       250        MINI JUMPER CLOSE BLUE         PINREX/200-71-PAGU00       <G>
+J1:23            250        MINI JUMPER CLOSE BLUE         PINREX/200-71-PAGU00       <G>
+KBPWR1:23        250        MINI JUMPER CLOSE BLUE         PINREX/200-71-PAGU00       <G>
+BIOS_WP0         260        HEADER 1X2P,S/T,2.54mm,G/F     PINREX/210-91-02GB01       <G>
+CLRTC1           270        HEADER 1X3P,2.54mm,S/T         PINREX/210-91-03GB01       <G>
+J1               270        HEADER 1X3P,2.54mm,S/T         PINREX/210-91-03GB01       <G>
+KBPWR1           270        HEADER 1X3P,2.54mm,S/T         PINREX/210-91-03GB01       <G>
+IR_CON1          280        HEADER 1X5P S/T,2.54mm,K2,BK   PINREX/210-91-05GB03          
+SPDIF1           290        HEADER 1X4P S/T 2.54mm,K2 G/F  PINREX/210-91-04GB02,BLACK    
+FP_AUDIO1        300        HEADER 2X5P K8 2.54mm S/T G/F  PINREX/210-92-05GB06       <G>
+F_PANEL1         310        HEADER 2X5P 2.54mm S/T K10 G/F JVE/21N22564-10S10B-01G-6/3V2G
+USB56            320        HEADER 2X5P 2.54mm S/T K9 JVE/ 21U2264-10S10-01G-6/3-V1-GN   
+USB78            320        HEADER 2X5P 2.54mm S/T K9 JVE/ 21U2264-10S10-01G-6/3-V1-GN   
+COM2             330        BOX HEAD 2X5P S/T 2.54mm K10   JVE/23N6960-10S10B-01G-V10-G  
+FLOPPY1          340        BOX HEAD 2X17P S/T,K5 BK       PINREX/510-80-34GB03,NY66     
+PRI_IDE1         350        BOX HEAD 2X20P S/T,K20,BLUE    PINREX/510-80-40GU01,NY66     
+SEC_IDE1         360        BOX HEAD 2X20P S/T 2.54mm,K20  FOXCONN/HL2220F-D2,BLACK      
+CHA_FAN1         370        WAFER HD 3P S/T 2.54 W/POST    PINREX/744-81-03TW10,WHITE    
+CPU_FAN1         380        WAFER HD 4P S/T 2.54POST,WHITE STARLINK/108032-401AC      <G>
+CD1              390        WAFER HD 4P S/T 2.54,BLACK,CD  STARLINK/108032-504AC      <G>
+AUX1             400        WAFER HD 4P S/T 2.54,CD,WHITE  CS/JS-1143-04(DN)W-V0         
+COM1             410        D-SUB 9P M,R/A,DIP,GREEN       FOXCONN/DT10121-H5W3-4F    <G>
+LPT1             420        D-SUB 25P F,HIGH PORT,PC99,W/S FOXCONN/DM11351-H5W3-4F    <G>
+VGA1             430        DDC CONN 15P3R (BLUE) S.B W/SC FOXCONN/DZ11AA1-H5W1-4F       
+USB12            440        USB CON 2X4P STACK W/S DIP     LOTES/KU1215BP3E           <G>
+(B/G/P)<G>0      450        PHONE JACK 3IN1,STACK,PC99,DIP AMBIZ/A66-13AMKPS1A           
+KBMS1            460        MINI DIN 6P,STACK W/S,PC99     AMCO/514-6CL1PA               
+LAN_USB34        470        JACK USB/LAN,W/LED,10/100,TRA  FOXCONN/JFM24U11-21C3-4F      
+ATXPWR1          480        POWER CON 20P W/PEG,A,B        STARLINK/108053-107        <G>
+ATX12V1          490        POWER CON 4P S/T,ATX,W/PG2     PINREX/740-41-04TWC0          
+SATA1            500        SATA CON 7P S/T DIP,SHIELD BK  AMCO/221-P07VMS1B-G           
+SATA2            500        SATA CON 7P S/T DIP,SHIELD BK  AMCO/221-P07VMS1B-G           
+BATTERY1         510        BATT HOLDER/CR2032 DIP         LOTES/KB6666BP5L-B         <G>
+HEATSINK1        520        HEAT SINK FOR SIS630 CHIPSET   AMA/90-ZBH90A002              
+U26              530        THERMAL GREASE AK-100 20G      ???u/HS07                  <G>
+X7               540        JUMPER WIRE                    JU 0.5?X6.3*4*6.3             
+X7               550        P5S533-TVM ISA/THTF/SI <GA>    JU 0.5?X6.3*4*6.3             
+
+
