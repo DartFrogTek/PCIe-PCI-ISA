@@ -1819,7 +1819,7 @@
 			(pin unspecified line
 				(at 21.59 -58.42 90)
 				(length 2.54)
-				(name "IOHCK#"
+				(name "IOCHCK#"
 					(effects
 						(font
 							(size 1.27 1.27)
