@@ -12,8 +12,10 @@ https://www.vogons.org/viewtopic.php?t=93291
 - *WIP*
 
 ## ACPI SSDT 
-- A way to configure motherboard bus bridges to allow I/O forwarding, given to me by an absolute legend.
-- *Boilerplate implementation*
+- A way to configure motherboard bus bridges to allow I/O forwarding.
+- *Boilerplate implementation*, given to me by an absolute legend.
+- Added steps on how to find bridge and modify `IT8893_ACPI_SSDT.asl` for compiling.
+- `IT8893_ACPI_SSDT.asl` Compiles *UNTESTED - DO NOT USE*
 
 ## DXE Driver
 - Last resort, given to me by an absolute legend.
