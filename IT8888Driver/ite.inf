@@ -1,0 +1,25 @@
+[Version]
+Signature=$CHICAGO$
+Class=System
+Provider=%String0%
+
+[Manufacturer]
+%String1%=ITE_SYS
+
+[ITE_SYS]
+%String2%=NO_DRV,PCI\VEN_1283&DEV_8888
+
+[DriverInstall.NT]
+
+[DriverInstall]
+
+[NO_DRV]
+
+[NO_DRV.Services]
+AddService = , %SPSVCINST_ASSOCSERVICE% ; null service install
+
+[Strings]
+String0="ITE"
+String1="ITE"
+String2="ITE 8888 PCI to ISA bridge"
+SPSVCINST_ASSOCSERVICE = 0x00000002
