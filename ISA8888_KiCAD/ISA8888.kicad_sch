@@ -9588,6 +9588,16 @@
 			(embedded_fonts no)
 		)
 	)
+	(text "IRQ9=IRQ2\n"
+		(exclude_from_sim no)
+		(at 279.654 38.354 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "297ec1fb-ee20-4988-a297-c0b9e7f31f71")
+	)
 	(text "PCI dISAppointment"
 		(exclude_from_sim no)
 		(at 196.088 -16.002 0)
@@ -9638,10 +9648,10 @@
 		)
 		(uuid "170c9d78-120c-4e7b-9e29-5085dcbf4528")
 	)
-	(text_box "TODO: Add external latches.\nCreates LA17-LA19 from SA17-SA19 using BALE.\nFor now SA17-SA19 can be hooked up to LA17-LA19.\n\n\n\n\n\n\n\nMost ISA cards that need LA17, LA18, LA19\nwill work fine with SA17, SA18, SA19"
+	(text_box "TODO: Add external latches.\nCreates LA17-LA19 from SA17-SA19 using BALE.\nFor now SA17-SA19 can be hooked up to LA17-LA19.\n\n\n\n\n\n\n\nMost ISA cards that need LA17, LA18, LA19\nwill work fine with SA17, SA18, SA19\n\n74ACT11373 OCTAL TRANSPARENT D-TYPE LATCH\nWITH 3-STATE OUTPUTS "
 		(exclude_from_sim no)
 		(at 341.63 113.03 0)
-		(size 64.77 27.94)
+		(size 64.77 33.02)
 		(margins 0.9525 0.9525 0.9525 0.9525)
 		(stroke
 			(width 0)
@@ -10305,10 +10315,6 @@
 	(no_connect
 		(at 62.23 67.31)
 		(uuid "d48c8907-7508-433c-8bfe-aace071dc611")
-	)
-	(no_connect
-		(at 293.37 38.1)
-		(uuid "d5cb7017-3d97-4abf-aeb6-41f8f4b6a0d3")
 	)
 	(no_connect
 		(at 240.03 201.93)
@@ -13840,6 +13846,16 @@
 	)
 	(wire
 		(pts
+			(xy 292.1 38.1) (xy 293.37 38.1)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a77319ae-09c5-4647-b53f-ea9e8d4619d9")
+	)
+	(wire
+		(pts
 			(xy 194.31 251.46) (xy 204.47 251.46)
 		)
 		(stroke
@@ -16767,6 +16783,28 @@
 		(uuid "21770741-041c-4b1c-bbe6-c9f29c8a31ef")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
 			(at 50.4758 130.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+				(hide yes)
+			)
+		)
+	)
+	(global_label "IRQ9"
+		(shape input)
+		(at 292.1 38.1 180)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "217da4f8-c3d2-40fe-9dc8-cbb79f1797fd")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 284.7 38.1 0)
 			(effects
 				(font
 					(size 1.27 1.27)
