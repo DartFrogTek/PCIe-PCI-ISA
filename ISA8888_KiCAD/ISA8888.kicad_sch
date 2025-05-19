@@ -9588,16 +9588,6 @@
 			(embedded_fonts no)
 		)
 	)
-	(text "IRQ9=IRQ2\n"
-		(exclude_from_sim no)
-		(at 279.654 38.354 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "297ec1fb-ee20-4988-a297-c0b9e7f31f71")
-	)
 	(text "PCI dISAppointment"
 		(exclude_from_sim no)
 		(at 196.088 -16.002 0)
@@ -9647,6 +9637,66 @@
 			(justify left top)
 		)
 		(uuid "170c9d78-120c-4e7b-9e29-5085dcbf4528")
+	)
+	(text_box "Errata 1"
+		(exclude_from_sim no)
+		(at 269.24 43.18 0)
+		(size 13.97 7.62)
+		(margins 0.9525 0.9525 0.9525 0.9525)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill
+			(type none)
+		)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left top)
+		)
+		(uuid "38cf270b-f549-4306-9aef-9b644d5c6646")
+	)
+	(text_box "Errata 0: \nIRQ9=IRQ2\n"
+		(exclude_from_sim no)
+		(at 266.7 31.75 0)
+		(size 15.24 8.89)
+		(margins 0.9525 0.9525 0.9525 0.9525)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill
+			(type none)
+		)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left top)
+		)
+		(uuid "3cdd199c-46d4-491d-bea3-6713928bec84")
+	)
+	(text_box "Errata 1:\nIOCHRDY and NOWS# should not be used simultaniously.\nNOWS# is No Wait State. It is Pin8/UNUSED on symbol.\nNOWS# is also known as CARD SEL or CARD SLCTD."
+		(exclude_from_sim no)
+		(at 344.17 40.64 0)
+		(size 58.42 17.78)
+		(margins 0.9525 0.9525 0.9525 0.9525)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill
+			(type none)
+		)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left top)
+		)
+		(uuid "40dbd789-7f30-42a3-a650-901a0776aad3")
 	)
 	(text_box "TODO: Add external latches.\nCreates LA17-LA19 from SA17-SA19 using BALE.\nFor now SA17-SA19 can be hooked up to LA17-LA19.\n\n\n\n\n\n\n\nMost ISA cards that need LA17, LA18, LA19\nwill work fine with SA17, SA18, SA19\n\n74ACT11373 OCTAL TRANSPARENT D-TYPE LATCH\nWITH 3-STATE OUTPUTS "
 		(exclude_from_sim no)
@@ -10233,7 +10283,7 @@
 		(uuid "43fc17ca-a71f-4edf-afd3-de872e91508c")
 	)
 	(no_connect
-		(at 293.37 48.26)
+		(at 281.94 48.26)
 		(uuid "44eb30c8-d7bf-4814-8451-4f491c9e8ea9")
 	)
 	(no_connect
@@ -11563,6 +11613,16 @@
 			(type default)
 		)
 		(uuid "3b0d1aac-6f93-4366-b195-5278fd01b7c3")
+	)
+	(wire
+		(pts
+			(xy 281.94 48.26) (xy 293.37 48.26)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3b1bedc5-85dd-44f6-8bd2-469d20495fa1")
 	)
 	(wire
 		(pts
@@ -13846,7 +13906,7 @@
 	)
 	(wire
 		(pts
-			(xy 292.1 38.1) (xy 293.37 38.1)
+			(xy 280.67 38.1) (xy 293.37 38.1)
 		)
 		(stroke
 			(width 0)
@@ -15066,7 +15126,7 @@
 	)
 	(wire
 		(pts
-			(xy 330.2 53.34) (xy 328.93 53.34)
+			(xy 346.71 53.34) (xy 328.93 53.34)
 		)
 		(stroke
 			(width 0)
@@ -16794,7 +16854,7 @@
 	)
 	(global_label "IRQ9"
 		(shape input)
-		(at 292.1 38.1 180)
+		(at 280.67 38.1 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -16804,7 +16864,7 @@
 		)
 		(uuid "217da4f8-c3d2-40fe-9dc8-cbb79f1797fd")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 284.7 38.1 0)
+			(at 273.27 38.1 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -22646,7 +22706,7 @@
 	)
 	(global_label "IOCHRDY"
 		(shape input)
-		(at 330.2 53.34 0)
+		(at 346.71 53.34 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -22656,7 +22716,7 @@
 		)
 		(uuid "b5dbcbf9-d8a0-4713-a210-40452ba536b2")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 341.3496 53.34 0)
+			(at 357.8596 53.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24686,6 +24746,28 @@
 					(size 1.27 1.27)
 				)
 				(justify left)
+				(hide yes)
+			)
+		)
+	)
+	(global_label "NOWS#"
+		(shape input)
+		(at 279.4 48.26 180)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "e852d304-7bc4-49e8-94e6-28340f7518d0")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 269.8229 48.26 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
 				(hide yes)
 			)
 		)
