@@ -5,6 +5,10 @@ More information is available on the "dISAppointment - LPC to ISA adapter - ISA 
 
 https://www.vogons.org/viewtopic.php?t=93291
 
+## PCIe support is likely a bust without custom address translation and software modification.
+https://dn720003.ca.archive.org/0/items/33.-oxford-legacy-address-ranges/33.Oxford_Legacy_Address_Ranges.pdf
+See page 40 of Vogons.
+
 ## IT8888 based ISA8888 PCI to ISA Card
 - This card/breakout board should allow a user-provided ISA Card to be translated into a PCI card via IT8888.
 - ISA DMA is facilitated by PCI bus mastering through the IT8888 chip.
