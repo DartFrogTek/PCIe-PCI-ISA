@@ -19414,7 +19414,7 @@
 				)
 			)
 		)
-		(property "Footprint" "ISA8888:CONN_EBC49_SUL_Fixed"
+		(property "Footprint" "ISA8888:CONN_EBC49_SUL"
 			(at 311.15 166.37 0)
 			(effects
 				(font
