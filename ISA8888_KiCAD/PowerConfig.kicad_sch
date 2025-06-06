@@ -11643,7 +11643,7 @@
 				)
 			)
 		)
-		(property "Value" "R_Net_10_10k"
+		(property "Value" "R_Net_10_4k7"
 			(at 244.856 99.06 90)
 			(effects
 				(font
