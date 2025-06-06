@@ -1,4 +1,4 @@
 (fp_lib_table
   (version 7)
-  (lib (name "DFT")(type "KiCad")(uri "G:/")(options "")(descr ""))
+  (lib (name "DFT")(type "KiCad")(uri "G:/PCIe-PCI-ISA/Extras/Footprint_Models/KiCADv6/footprints.pretty")(options "")(descr ""))
 )

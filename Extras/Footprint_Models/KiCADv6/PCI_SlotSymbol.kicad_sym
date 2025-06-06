@@ -7,7 +7,7 @@
 		(in_bom yes)
 		(on_board yes)
 		(property "Reference" "J1"
-			(at 0 83.82 0)
+			(at 3.81 83.82 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15,7 +15,7 @@
 			)
 		)
 		(property "Value" "Bus_PCI_32bit_Universal_Slot"
-			(at 0 81.28 0)
+			(at -3.81 81.28 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23,7 +23,7 @@
 			)
 		)
 		(property "Footprint" "LibraryLoader:51451541"
-			(at 0 -1.27 0)
+			(at -3.81 -1.27 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -32,7 +32,7 @@
 			)
 		)
 		(property "Datasheet" "http://pinouts.ru/Slots/PCI_pinout.shtml"
-			(at 0 -1.27 0)
+			(at -3.81 -1.27 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -41,7 +41,7 @@
 			)
 		)
 		(property "Description" "PCI bus connector for universal 5V/3.3V cards"
-			(at 0 0 0)
+			(at -3.81 0 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -60,8 +60,8 @@
 		)
 		(symbol "Bus_PCI_32bit_Universal_0_1"
 			(rectangle
-				(start -19.05 78.74)
-				(end 19.05 -81.28)
+				(start -15.24 78.74)
+				(end 15.24 -81.28)
 				(stroke
 					(width 0.254)
 					(type default)
@@ -73,7 +73,7 @@
 		)
 		(symbol "Bus_PCI_32bit_Universal_1_1"
 			(pin power_in line
-				(at -22.86 76.2 0)
+				(at -19.05 76.2 0)
 				(length 3.81)
 				(name "-12V"
 					(effects
@@ -91,7 +91,7 @@
 				)
 			)
 			(pin output line
-				(at -22.86 73.66 0)
+				(at -19.05 73.66 0)
 				(length 3.81)
 				(name "TCK"
 					(effects
@@ -109,7 +109,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 71.12 0)
+				(at -19.05 71.12 0)
 				(length 3.81)
 				(name "GND"
 					(effects
@@ -127,7 +127,7 @@
 				)
 			)
 			(pin input line
-				(at -22.86 68.58 0)
+				(at -19.05 68.58 0)
 				(length 3.81)
 				(name "TDO"
 					(effects
@@ -145,7 +145,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 66.04 0)
+				(at -19.05 66.04 0)
 				(length 3.81)
 				(name "+5V"
 					(effects
@@ -163,7 +163,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 63.5 0)
+				(at -19.05 63.5 0)
 				(length 3.81)
 				(name "+5V"
 					(effects
@@ -181,7 +181,7 @@
 				)
 			)
 			(pin input line
-				(at -22.86 60.96 0)
+				(at -19.05 60.96 0)
 				(length 3.81)
 				(name "~{INTB#}"
 					(effects
@@ -199,7 +199,7 @@
 				)
 			)
 			(pin input line
-				(at -22.86 58.42 0)
+				(at -19.05 58.42 0)
 				(length 3.81)
 				(name "~{INTD#}"
 					(effects
@@ -217,7 +217,7 @@
 				)
 			)
 			(pin input line
-				(at -22.86 55.88 0)
+				(at -19.05 55.88 0)
 				(length 3.81)
 				(name "~{PRSNT1#}"
 					(effects
@@ -235,7 +235,7 @@
 				)
 			)
 			(pin passive line
-				(at -22.86 53.34 0)
+				(at -19.05 53.34 0)
 				(length 3.81)
 				(name "RESERVED"
 					(effects
@@ -253,7 +253,7 @@
 				)
 			)
 			(pin input line
-				(at -22.86 50.8 0)
+				(at -19.05 50.8 0)
 				(length 3.81)
 				(name "~{PRSNT2#}"
 					(effects
@@ -271,7 +271,7 @@
 				)
 			)
 			(pin no_connect line
-				(at -22.86 48.26 0)
+				(at -19.05 48.26 0)
 				(length 3.81)
 				(name "________KEY________"
 					(effects
@@ -289,7 +289,7 @@
 				)
 			)
 			(pin no_connect line
-				(at -22.86 45.72 0)
+				(at -19.05 45.72 0)
 				(length 3.81)
 				(name "________KEY________"
 					(effects
@@ -307,7 +307,7 @@
 				)
 			)
 			(pin passive line
-				(at -22.86 43.18 0)
+				(at -19.05 43.18 0)
 				(length 3.81)
 				(name "RESERVED"
 					(effects
@@ -325,7 +325,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 40.64 0)
+				(at -19.05 40.64 0)
 				(length 3.81)
 				(name "GND"
 					(effects
@@ -343,7 +343,7 @@
 				)
 			)
 			(pin output line
-				(at -22.86 38.1 0)
+				(at -19.05 38.1 0)
 				(length 3.81)
 				(name "CLK"
 					(effects
@@ -361,7 +361,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 35.56 0)
+				(at -19.05 35.56 0)
 				(length 3.81)
 				(name "GND"
 					(effects
@@ -379,7 +379,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 33.02 0)
+				(at -19.05 33.02 0)
 				(length 3.81)
 				(name "~{REQ#}"
 					(effects
@@ -397,7 +397,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 30.48 0)
+				(at -19.05 30.48 0)
 				(length 3.81)
 				(name "VIO"
 					(effects
@@ -415,7 +415,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 27.94 0)
+				(at -19.05 27.94 0)
 				(length 3.81)
 				(name "AD[31]"
 					(effects
@@ -433,7 +433,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 25.4 0)
+				(at -19.05 25.4 0)
 				(length 3.81)
 				(name "AD[29]"
 					(effects
@@ -451,7 +451,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 22.86 0)
+				(at -19.05 22.86 0)
 				(length 3.81)
 				(name "GND"
 					(effects
@@ -469,7 +469,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 20.32 0)
+				(at -19.05 20.32 0)
 				(length 3.81)
 				(name "AD[27]"
 					(effects
@@ -487,7 +487,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 17.78 0)
+				(at -19.05 17.78 0)
 				(length 3.81)
 				(name "AD[25]"
 					(effects
@@ -505,7 +505,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 15.24 0)
+				(at -19.05 15.24 0)
 				(length 3.81)
 				(name "+3.3V"
 					(effects
@@ -523,7 +523,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 12.7 0)
+				(at -19.05 12.7 0)
 				(length 3.81)
 				(name "C/BE#[3]"
 					(effects
@@ -541,7 +541,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 10.16 0)
+				(at -19.05 10.16 0)
 				(length 3.81)
 				(name "AD[23]"
 					(effects
@@ -559,7 +559,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 7.62 0)
+				(at -19.05 7.62 0)
 				(length 3.81)
 				(name "GND"
 					(effects
@@ -577,7 +577,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 5.08 0)
+				(at -19.05 5.08 0)
 				(length 3.81)
 				(name "AD[21]"
 					(effects
@@ -595,7 +595,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 2.54 0)
+				(at -19.05 2.54 0)
 				(length 3.81)
 				(name "AD[19]"
 					(effects
@@ -613,7 +613,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 0 0)
+				(at -19.05 0 0)
 				(length 3.81)
 				(name "+3.3V"
 					(effects
@@ -631,7 +631,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 -2.54 0)
+				(at -19.05 -2.54 0)
 				(length 3.81)
 				(name "AD[17]"
 					(effects
@@ -649,7 +649,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 -5.08 0)
+				(at -19.05 -5.08 0)
 				(length 3.81)
 				(name "~{C/BE#[2]}"
 					(effects
@@ -667,7 +667,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -7.62 0)
+				(at -19.05 -7.62 0)
 				(length 3.81)
 				(name "GND"
 					(effects
@@ -685,7 +685,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 -10.16 0)
+				(at -19.05 -10.16 0)
 				(length 3.81)
 				(name "~{IRDY#}"
 					(effects
@@ -703,7 +703,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -12.7 0)
+				(at -19.05 -12.7 0)
 				(length 3.81)
 				(name "+3.3V"
 					(effects
@@ -721,7 +721,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 -15.24 0)
+				(at -19.05 -15.24 0)
 				(length 3.81)
 				(name "~{DEVSEL#}"
 					(effects
@@ -739,7 +739,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -17.78 0)
+				(at -19.05 -17.78 0)
 				(length 3.81)
 				(name "GND"
 					(effects
@@ -757,7 +757,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 -20.32 0)
+				(at -19.05 -20.32 0)
 				(length 3.81)
 				(name "~{LOCK#}"
 					(effects
@@ -775,7 +775,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 -22.86 0)
+				(at -19.05 -22.86 0)
 				(length 3.81)
 				(name "~{PERR#}"
 					(effects
@@ -793,7 +793,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -25.4 0)
+				(at -19.05 -25.4 0)
 				(length 3.81)
 				(name "+3.3V"
 					(effects
@@ -811,7 +811,7 @@
 				)
 			)
 			(pin input line
-				(at -22.86 -27.94 0)
+				(at -19.05 -27.94 0)
 				(length 3.81)
 				(name "~{SERR#}"
 					(effects
@@ -829,7 +829,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -30.48 0)
+				(at -19.05 -30.48 0)
 				(length 3.81)
 				(name "+3.3V"
 					(effects
@@ -847,7 +847,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 -33.02 0)
+				(at -19.05 -33.02 0)
 				(length 3.81)
 				(name "~{C/BE#[1]}"
 					(effects
@@ -865,7 +865,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 -35.56 0)
+				(at -19.05 -35.56 0)
 				(length 3.81)
 				(name "AD[14]"
 					(effects
@@ -883,7 +883,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -38.1 0)
+				(at -19.05 -38.1 0)
 				(length 3.81)
 				(name "GND"
 					(effects
@@ -901,7 +901,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 -40.64 0)
+				(at -19.05 -40.64 0)
 				(length 3.81)
 				(name "AD[12]"
 					(effects
@@ -919,7 +919,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 -43.18 0)
+				(at -19.05 -43.18 0)
 				(length 3.81)
 				(name "AD[10]"
 					(effects
@@ -937,7 +937,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -45.72 0)
+				(at -19.05 -45.72 0)
 				(length 3.81)
 				(name "M66EN"
 					(effects
@@ -955,7 +955,7 @@
 				)
 			)
 			(pin no_connect line
-				(at -22.86 -48.26 0)
+				(at -19.05 -48.26 0)
 				(length 3.81)
 				(name "________KEY________"
 					(effects
@@ -973,7 +973,7 @@
 				)
 			)
 			(pin no_connect line
-				(at -22.86 -50.8 0)
+				(at -19.05 -50.8 0)
 				(length 3.81)
 				(name "________KEY________"
 					(effects
@@ -991,7 +991,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 -53.34 0)
+				(at -19.05 -53.34 0)
 				(length 3.81)
 				(name "AD[08]"
 					(effects
@@ -1009,7 +1009,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 -55.88 0)
+				(at -19.05 -55.88 0)
 				(length 3.81)
 				(name "AD[07]"
 					(effects
@@ -1027,7 +1027,7 @@
 				)
 			)
 			(pin input line
-				(at -22.86 -58.42 0)
+				(at -19.05 -58.42 0)
 				(length 3.81)
 				(name "+3.3V"
 					(effects
@@ -1045,7 +1045,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 -60.96 0)
+				(at -19.05 -60.96 0)
 				(length 3.81)
 				(name "AD[05]"
 					(effects
@@ -1063,7 +1063,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 -63.5 0)
+				(at -19.05 -63.5 0)
 				(length 3.81)
 				(name "AD[03]"
 					(effects
@@ -1081,7 +1081,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -66.04 0)
+				(at -19.05 -66.04 0)
 				(length 3.81)
 				(name "GND"
 					(effects
@@ -1099,7 +1099,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 -68.58 0)
+				(at -19.05 -68.58 0)
 				(length 3.81)
 				(name "AD[01]"
 					(effects
@@ -1117,7 +1117,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -71.12 0)
+				(at -19.05 -71.12 0)
 				(length 3.81)
 				(name "VIO"
 					(effects
@@ -1135,7 +1135,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -22.86 -73.66 0)
+				(at -19.05 -73.66 0)
 				(length 3.81)
 				(name "~{ACK64#}"
 					(effects
@@ -1153,7 +1153,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -76.2 0)
+				(at -19.05 -76.2 0)
 				(length 3.81)
 				(name "+5V"
 					(effects
@@ -1171,7 +1171,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -78.74 0)
+				(at -19.05 -78.74 0)
 				(length 3.81)
 				(name "+5V"
 					(effects
@@ -1189,7 +1189,7 @@
 				)
 			)
 			(pin output line
-				(at 22.86 76.2 180)
+				(at 19.05 76.2 180)
 				(length 3.81)
 				(name "~{TRST#}"
 					(effects
@@ -1207,7 +1207,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 73.66 180)
+				(at 19.05 73.66 180)
 				(length 3.81)
 				(name "+12V"
 					(effects
@@ -1225,7 +1225,7 @@
 				)
 			)
 			(pin output line
-				(at 22.86 71.12 180)
+				(at 19.05 71.12 180)
 				(length 3.81)
 				(name "TMS"
 					(effects
@@ -1243,7 +1243,7 @@
 				)
 			)
 			(pin output line
-				(at 22.86 68.58 180)
+				(at 19.05 68.58 180)
 				(length 3.81)
 				(name "TDI"
 					(effects
@@ -1261,7 +1261,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 66.04 180)
+				(at 19.05 66.04 180)
 				(length 3.81)
 				(name "+5V"
 					(effects
@@ -1279,7 +1279,7 @@
 				)
 			)
 			(pin input line
-				(at 22.86 63.5 180)
+				(at 19.05 63.5 180)
 				(length 3.81)
 				(name "~{INTA#}"
 					(effects
@@ -1297,7 +1297,7 @@
 				)
 			)
 			(pin input line
-				(at 22.86 60.96 180)
+				(at 19.05 60.96 180)
 				(length 3.81)
 				(name "~{INTC#}"
 					(effects
@@ -1315,7 +1315,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 58.42 180)
+				(at 19.05 58.42 180)
 				(length 3.81)
 				(name "+5V"
 					(effects
@@ -1333,7 +1333,7 @@
 				)
 			)
 			(pin passive line
-				(at 22.86 55.88 180)
+				(at 19.05 55.88 180)
 				(length 3.81)
 				(name "RESERVED"
 					(effects
@@ -1351,7 +1351,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 53.34 180)
+				(at 19.05 53.34 180)
 				(length 3.81)
 				(name "VIO"
 					(effects
@@ -1369,7 +1369,7 @@
 				)
 			)
 			(pin passive line
-				(at 22.86 50.8 180)
+				(at 19.05 50.8 180)
 				(length 3.81)
 				(name "RESERVED"
 					(effects
@@ -1387,7 +1387,7 @@
 				)
 			)
 			(pin no_connect line
-				(at 22.86 48.26 180)
+				(at 19.05 48.26 180)
 				(length 3.81)
 				(name "________KEY________"
 					(effects
@@ -1405,7 +1405,7 @@
 				)
 			)
 			(pin no_connect line
-				(at 22.86 45.72 180)
+				(at 19.05 45.72 180)
 				(length 3.81)
 				(name "________KEY________"
 					(effects
@@ -1423,7 +1423,7 @@
 				)
 			)
 			(pin passive line
-				(at 22.86 43.18 180)
+				(at 19.05 43.18 180)
 				(length 3.81)
 				(name "3.3VAUX"
 					(effects
@@ -1441,7 +1441,7 @@
 				)
 			)
 			(pin output line
-				(at 22.86 40.64 180)
+				(at 19.05 40.64 180)
 				(length 3.81)
 				(name "~{RST#}"
 					(effects
@@ -1459,7 +1459,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 38.1 180)
+				(at 19.05 38.1 180)
 				(length 3.81)
 				(name "VIO"
 					(effects
@@ -1477,7 +1477,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 35.56 180)
+				(at 19.05 35.56 180)
 				(length 3.81)
 				(name "~{GNT#}"
 					(effects
@@ -1495,7 +1495,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 33.02 180)
+				(at 19.05 33.02 180)
 				(length 3.81)
 				(name "GND"
 					(effects
@@ -1513,7 +1513,7 @@
 				)
 			)
 			(pin passive line
-				(at 22.86 30.48 180)
+				(at 19.05 30.48 180)
 				(length 3.81)
 				(name "PME#"
 					(effects
@@ -1531,7 +1531,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 27.94 180)
+				(at 19.05 27.94 180)
 				(length 3.81)
 				(name "AD[30]"
 					(effects
@@ -1549,7 +1549,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 25.4 180)
+				(at 19.05 25.4 180)
 				(length 3.81)
 				(name "+3.3V"
 					(effects
@@ -1567,7 +1567,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 22.86 180)
+				(at 19.05 22.86 180)
 				(length 3.81)
 				(name "AD[28]"
 					(effects
@@ -1585,7 +1585,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 20.32 180)
+				(at 19.05 20.32 180)
 				(length 3.81)
 				(name "AD[26]"
 					(effects
@@ -1603,7 +1603,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 17.78 180)
+				(at 19.05 17.78 180)
 				(length 3.81)
 				(name "GND"
 					(effects
@@ -1621,7 +1621,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 15.24 180)
+				(at 19.05 15.24 180)
 				(length 3.81)
 				(name "AD[24]"
 					(effects
@@ -1639,7 +1639,7 @@
 				)
 			)
 			(pin output line
-				(at 22.86 12.7 180)
+				(at 19.05 12.7 180)
 				(length 3.81)
 				(name "IDSEL"
 					(effects
@@ -1657,7 +1657,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 10.16 180)
+				(at 19.05 10.16 180)
 				(length 3.81)
 				(name "+3.3V"
 					(effects
@@ -1675,7 +1675,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 7.62 180)
+				(at 19.05 7.62 180)
 				(length 3.81)
 				(name "AD[22]"
 					(effects
@@ -1693,7 +1693,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 5.08 180)
+				(at 19.05 5.08 180)
 				(length 3.81)
 				(name "AD[20]"
 					(effects
@@ -1711,7 +1711,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 2.54 180)
+				(at 19.05 2.54 180)
 				(length 3.81)
 				(name "GND"
 					(effects
@@ -1729,7 +1729,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 0 180)
+				(at 19.05 0 180)
 				(length 3.81)
 				(name "AD[18]"
 					(effects
@@ -1747,7 +1747,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 -2.54 180)
+				(at 19.05 -2.54 180)
 				(length 3.81)
 				(name "AD[16]"
 					(effects
@@ -1765,7 +1765,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 -5.08 180)
+				(at 19.05 -5.08 180)
 				(length 3.81)
 				(name "+3.3V"
 					(effects
@@ -1783,7 +1783,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 -7.62 180)
+				(at 19.05 -7.62 180)
 				(length 3.81)
 				(name "~{FRAME#}"
 					(effects
@@ -1801,7 +1801,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 -10.16 180)
+				(at 19.05 -10.16 180)
 				(length 3.81)
 				(name "GND"
 					(effects
@@ -1819,7 +1819,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 -12.7 180)
+				(at 19.05 -12.7 180)
 				(length 3.81)
 				(name "~{TRDY#}"
 					(effects
@@ -1837,7 +1837,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 -15.24 180)
+				(at 19.05 -15.24 180)
 				(length 3.81)
 				(name "GND"
 					(effects
@@ -1855,7 +1855,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 -17.78 180)
+				(at 19.05 -17.78 180)
 				(length 3.81)
 				(name "~{STOP#}"
 					(effects
@@ -1873,7 +1873,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 -20.32 180)
+				(at 19.05 -20.32 180)
 				(length 3.81)
 				(name "+3.3V"
 					(effects
@@ -1891,7 +1891,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 -22.86 180)
+				(at 19.05 -22.86 180)
 				(length 3.81)
 				(name "RESERVED"
 					(effects
@@ -1909,7 +1909,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 -25.4 180)
+				(at 19.05 -25.4 180)
 				(length 3.81)
 				(name "RESERVED"
 					(effects
@@ -1927,7 +1927,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 -27.94 180)
+				(at 19.05 -27.94 180)
 				(length 3.81)
 				(name "GND"
 					(effects
@@ -1945,7 +1945,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 -30.48 180)
+				(at 19.05 -30.48 180)
 				(length 3.81)
 				(name "PAR"
 					(effects
@@ -1963,7 +1963,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 -33.02 180)
+				(at 19.05 -33.02 180)
 				(length 3.81)
 				(name "AD[15]"
 					(effects
@@ -1981,7 +1981,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 -35.56 180)
+				(at 19.05 -35.56 180)
 				(length 3.81)
 				(name "+3.3V"
 					(effects
@@ -1999,7 +1999,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 -38.1 180)
+				(at 19.05 -38.1 180)
 				(length 3.81)
 				(name "AD[13]"
 					(effects
@@ -2017,7 +2017,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 -40.64 180)
+				(at 19.05 -40.64 180)
 				(length 3.81)
 				(name "AD[11]"
 					(effects
@@ -2035,7 +2035,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 -43.18 180)
+				(at 19.05 -43.18 180)
 				(length 3.81)
 				(name "GND"
 					(effects
@@ -2053,7 +2053,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 -45.72 180)
+				(at 19.05 -45.72 180)
 				(length 3.81)
 				(name "AD[09]"
 					(effects
@@ -2071,7 +2071,7 @@
 				)
 			)
 			(pin no_connect line
-				(at 22.86 -48.26 180)
+				(at 19.05 -48.26 180)
 				(length 3.81)
 				(name "________KEY________"
 					(effects
@@ -2089,7 +2089,7 @@
 				)
 			)
 			(pin no_connect line
-				(at 22.86 -50.8 180)
+				(at 19.05 -50.8 180)
 				(length 3.81)
 				(name "________KEY________"
 					(effects
@@ -2107,7 +2107,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 -53.34 180)
+				(at 19.05 -53.34 180)
 				(length 3.81)
 				(name "~{C/BE#[0]}"
 					(effects
@@ -2125,7 +2125,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 -55.88 180)
+				(at 19.05 -55.88 180)
 				(length 3.81)
 				(name "+3.3V"
 					(effects
@@ -2143,7 +2143,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 -58.42 180)
+				(at 19.05 -58.42 180)
 				(length 3.81)
 				(name "AD[06]"
 					(effects
@@ -2161,7 +2161,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 -60.96 180)
+				(at 19.05 -60.96 180)
 				(length 3.81)
 				(name "AD[04]"
 					(effects
@@ -2179,7 +2179,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 -63.5 180)
+				(at 19.05 -63.5 180)
 				(length 3.81)
 				(name "GND"
 					(effects
@@ -2197,7 +2197,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 -66.04 180)
+				(at 19.05 -66.04 180)
 				(length 3.81)
 				(name "AD[02]"
 					(effects
@@ -2215,7 +2215,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 -68.58 180)
+				(at 19.05 -68.58 180)
 				(length 3.81)
 				(name "AD[00]"
 					(effects
@@ -2233,7 +2233,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 -71.12 180)
+				(at 19.05 -71.12 180)
 				(length 3.81)
 				(name "VIO"
 					(effects
@@ -2251,7 +2251,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 22.86 -73.66 180)
+				(at 19.05 -73.66 180)
 				(length 3.81)
 				(name "~{REQ64#}"
 					(effects
@@ -2269,7 +2269,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 -76.2 180)
+				(at 19.05 -76.2 180)
 				(length 3.81)
 				(name "+5V"
 					(effects
@@ -2287,7 +2287,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 -78.74 180)
+				(at 19.05 -78.74 180)
 				(length 3.81)
 				(name "+5V"
 					(effects
