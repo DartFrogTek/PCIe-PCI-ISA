@@ -1,4 +1,4 @@
-25628995831402030
+25629003906531190
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -60361,27 +60361,6 @@ heatsink
 0
 0
 ISA8888
-CONN120_2x60_HFD-S578_SUL
-
-GCB60DHFD-S578 
-0
-120
-120
-ISA8888
-CONN_EBC49_SUL
-
-EBC49DCWN-S420 
-0
-98
-98
-ISA8888
-CONN_EBC49_SUL_Fixed
-
-EBC49DCWN-S420 
-0
-98
-98
-ISA8888
 DFT_Frog_CopperArt
 
 
@@ -60395,6 +60374,27 @@ DFT_LOGO_CopperArt
 0
 0
 0
+ISA8888
+DFT_Mictor_Breakout_Probe_Connector_Single
+
+
+0
+43
+19
+ISA8888
+DFT_Mictor_Breakout_Probe_Connector_Standard
+
+
+0
+86
+19
+ISA8888
+ISA_16Bit_ThroughHole
+
+EBC49DCWN-S420 
+0
+98
+98
 ISA8888
 IT8888G
 

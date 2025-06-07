@@ -1,11 +1,11 @@
-(footprint "CONN_EBC49_SUL_Fixed"
+(footprint "ISA_16Bit_ThroughHole"
 	(version 20241229)
 	(generator "pcbnew")
 	(generator_version "9.0")
 	(layer "F.Cu")
 	(tags "EBC49DCWN-S420 ")
 	(property "Reference" "J2"
-		(at -68.58 2.54 0)
+		(at -68.58 -4 0)
 		(unlocked yes)
 		(layer "F.SilkS")
 		(uuid "e51f1b2d-cd6e-4a30-a0de-e7be3a79e40d")
@@ -17,7 +17,7 @@
 		)
 	)
 	(property "Value" "Bus_ISA_16bit"
-		(at -64.77 2.54 0)
+		(at -68.5 2.5 0)
 		(unlocked yes)
 		(layer "F.Fab")
 		(uuid "7faf1b63-0069-453d-a158-2d075abc46b8")
@@ -207,7 +207,7 @@
 		(uuid "7a40fff3-9374-4c8c-83dc-21c762631121")
 	)
 	(fp_text user "${REFERENCE}"
-		(at -68.58 2.54 0)
+		(at -68.58 9 0)
 		(unlocked yes)
 		(layer "F.Fab")
 		(uuid "bc10b032-8960-40fa-bf5f-9e17728779df")
