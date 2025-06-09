@@ -5995,7 +5995,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Package_QFP:PQFP-160_28x28mm_P0.65mm"
+		(property "Footprint" "DFT:DFT_PQFP-160_28x28mm_P0.65mm_Adapter"
 			(at 147.32 92.71 0)
 			(effects
 				(font

@@ -1,4 +1,4 @@
-25627246543859394
+25630753257304525
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -57148,27 +57148,6 @@ ceramic
 3
 3
 DFT
-CONN120_2x60_HFD-S578_SUL
-
-GCB60DHFD-S578 
-0
-120
-120
-DFT
-CONN_EBC49_SUL
-
-EBC49DCWN-S420 
-0
-98
-98
-DFT
-CONN_EBC49_SUL_Fixed
-
-EBC49DCWN-S420 
-0
-98
-98
-DFT
 DFT_Frog_CopperArt
 
 
@@ -57182,6 +57161,41 @@ DFT_LOGO_CopperArt
 0
 0
 0
+DFT
+DFT_Mictor_Breakout_Probe_Connector_Single
+
+
+0
+43
+19
+DFT
+DFT_Mictor_Breakout_Probe_Connector_Standard
+
+
+0
+86
+19
+DFT
+DFT_PQFP-160_28x28mm_P0.65mm_Adapter
+PQFP, 160 Pin (http://www.microsemi.com/index.php?option=com_docman&task=doc_download&gid=131095), generated with kicad-footprint-generator ipc_gullwing_generator.py
+PQFP QFP
+0
+320
+160
+DFT
+ISA_16Bit_ThroughHole
+
+EBC49DCWN-S420 
+0
+98
+98
+DFT
+IT8888G
+
+
+0
+160
+160
 DFT
 ProtoPin_100
 
