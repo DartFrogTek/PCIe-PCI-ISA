@@ -1,4 +1,4 @@
-25632502890242619
+25646493349960889
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -57180,7 +57180,7 @@ DFT_PQFP-160_28x28mm_P0.65mm_Adapter
 PQFP, 160 Pin (http://www.microsemi.com/index.php?option=com_docman&task=doc_download&gid=131095), generated with kicad-footprint-generator ipc_gullwing_generator.py
 PQFP QFP
 0
-320
+160
 160
 DFT
 ISA_16Bit_ThroughHole
@@ -60427,6 +60427,62 @@ Heatsink
 Heatsink_Stonecold_HS-S03_13.21x12.7mm
 Heatsink, Stonecold, HS, https://www.tme.eu/Document/f7f93f538b934e0b08e09747396fb95f/hs-s.pdf
 heatsink
+0
+0
+0
+ISA8888
+DFT_Logo_Large
+
+
+0
+0
+0
+ISA8888
+DFT_Logo_Medium
+
+
+0
+0
+0
+ISA8888
+DFT_Logo_Small
+
+
+0
+0
+0
+ISA8888
+DFT_Logo_Tiny
+
+
+0
+0
+0
+ISA8888
+DFT_SS
+
+
+0
+0
+0
+ISA8888
+DFT_SS_Medium
+
+
+0
+0
+0
+ISA8888
+DFT_SS_Small
+
+
+0
+0
+0
+ISA8888
+DF_SS_Tiny
+
+
 0
 0
 0
