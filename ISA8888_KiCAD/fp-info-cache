@@ -1,4 +1,4 @@
-25629003906531190
+25632502740039914
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -60389,6 +60389,13 @@ DFT_Mictor_Breakout_Probe_Connector_Standard
 86
 19
 ISA8888
+DFT_PQFP-160_28x28mm_P0.65mm_Adapter
+PQFP, 160 Pin (http://www.microsemi.com/index.php?option=com_docman&task=doc_download&gid=131095), generated with kicad-footprint-generator ipc_gullwing_generator.py
+PQFP QFP
+0
+320
+160
+ISA8888
 ISA_16Bit_ThroughHole
 
 EBC49DCWN-S420 
@@ -60397,6 +60404,13 @@ EBC49DCWN-S420
 98
 ISA8888
 IT8888G
+
+
+0
+160
+160
+ISA8888
+IT8888G_1
 
 
 0

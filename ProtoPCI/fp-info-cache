@@ -1,4 +1,4 @@
-25630753257304525
+25632502890242619
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -57196,6 +57196,13 @@ IT8888G
 0
 160
 160
+DFT
+IT8888G_QFP_Naming
+
+
+0
+160
+159
 DFT
 ProtoPin_100
 
