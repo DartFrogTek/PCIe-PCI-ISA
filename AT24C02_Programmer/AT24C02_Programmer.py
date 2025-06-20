@@ -3,9 +3,16 @@ import time
 import os
 
 # Initialize I2C with appropriate pins
-i2c = I2C(0, scl=Pin(5), sda=Pin(4), freq=100000)
+
+# Pin 2 / Pin 3 are physically Pin 4 / Pin 5
+i2c = I2C(1, scl=Pin(3), sda=Pin(2), freq=100000)
+
+# Pin 4 / Pin 5 are physically Pin 6 / Pin 6
+# i2c = I2C(0, scl=Pin(5), sda=Pin(4), freq=100000)
+
 
 # AT24C02 address (default 0x50)
+# 0x50 is A1,A2,A3 all connected to Ground.
 EEPROM_ADDR = 0x50
 
 # EEPROM specifications
