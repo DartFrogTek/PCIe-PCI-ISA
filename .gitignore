@@ -1,3 +1,10 @@
 ISA8888_KiCAD/freerouting.dsn
 /ProtoPCI/ProtoPCI-backups
 /ISA8888_KiCAD/ISA8888-backups
+/AT24C02_Programmer/pico-sdk
+AT24C02_Programmer/build.ninja
+AT24C02_Programmer/cmake_install.cmake
+AT24C02_Programmer/CMakeCache.txt
+/AT24C02_Programmer/CMakeFiles
+/AT24C02_Programmer/generated
+AT24C02_Programmer/pico_flash_region.ld
