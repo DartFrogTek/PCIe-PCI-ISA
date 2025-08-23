@@ -1,0 +1,391 @@
+*****************
+
+This is outdated Czech documentation (version 0.8)
+If someone thinks that this contains useful info somewhere, please
+let me know, because it will probably be removed in next release.
+
+-- Stoupa
+
+*****************
+
+
+
+ Mlho-dokumentace k semestralni praci z Operacnich systemu
+ za letni semestr 1999/2000.
+
+ 26.5.2000
+
+ -----------------------------------------------------------------------
+ WDM Drivery pro zvukove karty Gravis UltraSound pro Windows 2000/98(SE)
+ -----------------------------------------------------------------------
+
+
+ skupina: VOTO
+ delnici: Stepan Vondrak & Petr Tovarys
+ rok: letni semestr 1999/2000
+ co:  WDM zvukove drivery
+ pro: zvukove karty Gravis UltraSound (GUS) vseho druhu
+ OS:  Windows 2000 & Windows 98 Second Edition
+
+
+
+Pozadavky:
+=========
+
+ Zvukova karta GUS:
+ -----------------
+   Podporovany jsou tyto zvukove karty: GUS GF1, GUS MAX, GUS InterWave PnP
+   a vsechny GUS karty s nimi dostatecne kompatibilni (asi ACE, Viper, apod.)
+   Prakticky byly drivery otestovany na GUS GF1 a GUS InterWave PnP.
+
+
+
+ OS:
+ --
+   Drivery jsou urceny pro operacni systemy Windows 2000
+   a Windows 98 Second Edition, kde je podporovana WDM architektura driveru.
+   WDM architektura je implementovana i pod Windows 98 (puvodni vydani - Gold),
+   avsak zde obsahuje bugy, takze Audio WDM drivery zde nefunguji.
+   WDM neni implemetovana na Windows NT (4.0 a nize).
+   Drivery byly (uspesne) otestovany pod Windows 2000 i Windows 98(SE).
+
+
+
+Kompilace a instalace:
+=====================
+
+  Kompilace:
+  ---------
+   Ke kompilaci je nutny vyvojarsky balik Windows 2000 DDK (Driver
+   Development Kit) a kompilator Microsoft Visual C++ 6.0.
+   Zdrojaky rozbalte do adresare <ddk>/src/wdm/audio/gus.
+   Pustte "build -cZ" nejdrive v adresari <ddk>/src/wdm/audio/stdunk
+   a pak totez v gusu. Doporucuje se prekladat pod win2000, ale pry
+   lze i v 98 (tvrdi Boovie).
+
+
+  Instalace:
+  ---------
+   Po kompilaci vypadne jediny soubor 'bbsgf1.sys' (v podadresari objfre/i386,
+   pokud nemate debugovaci [checked] build windows). Ten je nutno umistit
+   spolecne s 'bbsgf1.inf' ze zdrojakoveho adresare na nejake bezpecne misto.
+   (treba d:\temp).
+   Kdyz Windowsy nadetekuji nove zarizeni (v pripade GUS PnP automaticky,
+   pro ostatni karty uzivatel musi manualne spustit "Pridat novy hardware")
+   je nutno zadat cestu k souboru 'bbsgf1.inf', pote Windowsy provedou
+   nakopirovani driveru do systemu a jeho zaregistrovani. Nekdy Win98
+   nemuseji chtit restartovat, ale radeji to udelejte. Driver se sice
+   nahodi, ale aplikace vetsinou nove zarizeni stejne nevidi. Windows2000
+   kupodivu museji restartovat vzdy.
+   Pokud uz je nejaky driver nainstalovan, pouzijte device manager, dostante
+   se do device properties a kliknete na "update driver".
+   Pozn: U me w98se PnP nenasly, protoze nebyl nainstalovat ovladac pro
+   IsaPnP sbernici (!) - k jeho nainstalovani lze pouzit "add new hardware"
+   a najit ovladac nekde v "system devices".
+
+
+  Hardcore instalace:
+  -------------------
+   Nakopirujte soubory tam, kam patri. Upravte registry tak, jak je treba.
+   Pokud uz je vse jednou nainstalovano, staci premazat 'bbsgf1.sys' v adresari
+   '<winnt>/system32/drivers' a restartovat.
+
+
+
+Kratce o WDM (Windows Driver Model) audio
+=========================================
+
+   WDM architektura predstavuje zvukovy driver jako mnozinu filtru
+   (miniportu), pres ktere tecou zvukova data. Kazdy filtr ma vstupni
+   a vystupni body (piny). Pres vstupni piny tecou data do miniportu,
+   pres vystupni body tecou data z miniportu. Piny take slouzi
+   k propojovani nekolika filtru dohromady.
+
+   Kazdy miniport je spojen s odpovidajicim portem. To je objekt, ktery
+   zprostredkovava propojeni systemu s odpovidajicim miniportem (filtrem).
+   WDM je zalozeno na COM objektovem modelu. Proto kazdy objekt se tvari
+   opravdu jako klasicky C++ objekt s metodami. V systemu behaji ruzne
+   pozadavky od aplikaci apod. ve forme IRP paketu. WDM Audio
+   system zpracovava pozadavky urcene zvukove karte a prevadi IRP pakety
+   na volani odpovidajicih metod v miniportech.
+
+   Driver podporuje dva typy miniportu - WaveCyclic a Topology miniport.
+
+   WaveCyclic miniport umoznuje prehravani a nahravani klasickych
+   zvukovych samplu (wave) a je implementovan jako cyklicky DMA buffer -
+   - tedy DMA buffer, ktery obsahuje audio data a cyklicky se prehrava
+   dokola s tim, ze za jiz prehrana data se doplnuji dalsi jeste nepreharana
+   audio data (analogicky v opacnem smeru pri recordeni).
+
+   Topology miniport reprezentuje, jak vypada karta vevnitr - jak jsou
+   prospojovany zvukove kanaly, kam v karte tecou data ze vstupu (CD,
+   mikrofon, LineIn, apod.), kde se mixuji dohromady, na kterych
+   kanalech je ovladani hlasitosti, ovladani mutovani apod.
+
+
+
+Co to umi a neumi:
+=================
+
+ Schopnosti:
+ ----------
+
+   Driver umi klasicke prehravani samplu (WAVE OUT), nahravani (recording)
+   a ovladani topologie - 'volume control'.
+   Drivery neumi hardwarove MIDI. Vzhledem ke kvalite dokumentace DDK neni
+   pravdepodobne, ze by to nekdo do roka rozchodil. Navic kdo si dneska
+   pousti MIDI, ze?  MIDI bude ale i tak chodit, protoze Windows (98 i 2k)
+   obsahuji softwarovy syntetizer.
+
+
+ Bugy:
+ ----
+   viz todo.txt (pokud je up-to-date, coz asi neni)
+
+
+
+Implementace:
+============
+
+Driver podporuje vpodstate vsechny karty od Advanced Gravis, co kdy
+svetlo tohoto krasneho sveta spatrily. To znamena, ze napr. prehravani
+digitalnich zvukovych vln se muze odehravat hned nekolikera ruznymi
+zpusoby. Proto jsme se taky nikdy nedostali k tem mid(i)(um).
+
+Jeste poznamka:
+Cela oblast psani driveru pro windows je dost obsahla a mlhava.
+Zde jsou popsany pouze implementacni zajimavosti tykajici se konkretne
+GUSa. O vecech, ktere by mely byt standardni "rutinni" praci (jako
+popis topologie mixer apod.) se zde rozepisovat moc nebudem, i kdyz
+to ve skutecnosti zas tak rutinni neni. DDK dokumentace je totiz
+mizerne napsana, chybi popisy celkem dulezitych struktur, referncni
+cast je vubec psana velmi strucne ("overview" casti jsou nekdy
+rozsahlejsi, ale pusobi spis jako reklama nez jako dokumentace).
+Jedina dobre zdokumentovana cast se tyka puvodnich NT veci (to uz
+napsali davno), novoty (tj. WDM audio) jsou zatim v hroznem stavu.
+Dost veci je proto budto okoukana z examplu (i kdyz i tam se najdou
+vylozene chyby), nebo odhadnuta jak-to-asi-funguje (neco se proste
+jinde nez v headerech najit neda). Jak to ale ve skutecnosti funguje
+tu psat nechcem, to by znamenalo delat praci za Microsoft (a bylo
+by to na dlouhe povidani).
+
+Pozn2.: To si nestezuju, ja s tim pocital.
+
+
+Na klasickem prastarem GUSu to funguje nasledovne:
+--------------------------------------------------
+
+Srdcem puvodniho Gusa je chip GF1. Jedna se o syntezator podporujici
+az 32 8/16bit kanalu. Ty prehravaji data z lokalni pameti (az 1MB).
+Umi to ruzne (dnes bezne) veci, jako loopovani, panning (ale pouhych
+16 pozic), hlasitosti obalky (tak trochu), ...
+
+GF1 umi prehravat pouze z lokalni pameti. Proto byla napsana emulace
+cyklickeho bufferu (ktery WDM ocekava) a pri kazdem zapisu do nej
+(funkce CGF1WavePlaybackStream::CopyTo) se nascheduluje DMA prenos
+do odpovidajiciho cyklickeho bufferu v pameti GUSe.
+
+Ten jest prehravan az dvema kanaly GF1 syntezatoru (pokud je stereo),
+ktere maji vhodne nastaven inkrement tak, aby slo poustet interleaved
+stream bez nejakeho rozkopirovavani do dvou bufferu.
+(kanaly prehravaji stejny flak pameti posunute o 1 sampl a preskakuji
+samply sousedniho kanalu - jasna paka).
+
+Diky neschopnosti GF1 jsou take podporovany nizsi frekvence nez 44kHz.
+Pokud totiz pocet aktivnich preroste 14, uz nestiha mixovat, u 32
+(maximum) klesne na nejakych 19kHz.
+
+Protoze WDM audio z nepochopitelnych duvodu pozaduje presne pravidelne
+notifikace, je zneuzit jeste dalsi kanal. Ten ma nulovou hlasitost,
+prehrava vhodne zvolenou cast pameti a pri kazde cyklu vygeneruje
+jedno IRQ. Teoreticky by sly pouzit i GF1 timery (puvodne urcene pro
+emulaci AdLibu), ale ty (alespon na mem vzorku) moc nefunguji.
+
+Recording umi GF1 pouze 8bitovy, ale jinak celkem normalni (pouziva
+se klasicky cyklicky dma buffer). Jediny problem je, ze neumi
+vhodne generovat preruseni pro notifikace, takze se opet zneuziva
+dalsi kanal syntezatoru.
+
+Navic ma moje GF1 dost velke problemy s generovanim preruseni (tj. obcas
+se stane, ze kanal ma ve stavovych biticich nahozeno "irq pending",
+preruseni jsou povolena, ale nic se nevyvola). Budto je to chyba v HW
+obecne (pak by moje snahy o osetreni techto anomalii byly rozumne),
+nebo me konretni karty, rozhodne ne driveru. Blbne to totiz i v originalnich
+aplikacich v DOSu (vetsina jich ale wavetable IRQ nepouziva; ty co ano
+obcas vytuhnou). Proto nekdy prestanou chodi interrupty nutne k notifikacim
+a cely playback jde do kytek.
+Preruseni pri DMA prenosech apod. funguji bez problemu.
+
+Deni v driveru pri prehravani vypada nejak takto:
+--------
+
+1) Obcerstvovani pameti:
+- zavolano CopyTo() - nova data v DMA cyklickem bufferu.
+  1) Zavolej se CGF1Common::ddma_download_nonpaged() - nascheduluje prenos
+     dat do pameti GUSa. To prida pozadavek na prenos do interniho cyklickeho
+     bufferu. Pokud neprobiha zadny DMA prenos, ihned zacne pozadavek vyrizovat.
+- vyrizovani pozadavku:
+  1) Zjisti, jakou cast aktualniho pozadavku muzes vyridit (ruzna omezeni HW)
+  2) Zahaj prenos teto casti
+- preruseni z duvodu dokonceni DMA prenosu
+  1) "Vycisti" po DMA prenosu (zrus generovani preruseni a tak) a nascheduluj DPC
+  2) DPC zjisti, jak je na tom aktualni prenos
+     - hotov a zadne dalsi pozadavky - prejde do stavu nicnedelani
+     - hotov a dalsi pozadavky nebo nehotov - opakuje "vyrizovani pozadavku"
+
+2) Notifikace
+- preruseni od specialniho notifikacniho kanalu
+  1) Zavolej funkci Notify() odpovidajiciho portu. Ta nejspis take v nejakem DPC
+     osaha aktualni prehravaci pozici, vezme nova data a zavola nase CopyTo().
+
+Recording je pak uz jasny - notifikace stejnym zpusobem.
+
+Co se topologie tyce, GF1 ji ma mirne receno jednodussi. Doporucuji
+prohlednout nazorny obrazek v 'topotab.cpp'. Je na nem vse, co GF1 umi.
+
+
+
+Novejsi GUSy:
+-------------
+
+Jedna se o typy Gravis UltraSound Max a Gravis UltraSound Plug & Play.
+Max je klasicky Gus + cip CS4231, coz je pomerne znamy (?) audio codec
+s mixerem. Ma podobne vlastnosti jako napriklad SoundBlaster Pro 16,
+takrka kompatibilni cip je ve WSS (Windows Sound System). Mimo
+jine umi 16bit playback a recording.
+
+Interwave (AMD cip pouzity v Gus PnP) kombinuje GF1 s CS4231 a oboje
+o neco zlepsuje (zvlaste GF1). Bohuzel ne vse zachovava (napr. GF1
+recording) a Codec taky neni ve vsem kompatibilni.
+
+Nynejsi implementace naicializuje originalni CS4231 (v Maxu) do "modu 2",
+Interwave Codec do "modu 3". Mod 2 ma jista omezeni:
+- prehravani i samplovani musi byt na stejne frekvenci
+- neexistuje "master" ovladani hlasitosti (lineout volume)
+- neexistuje ovladani hlasitosti pro vstup z mikrofonu.
+To nastesti nejsou zdaleka tak velke rozdily jako mezi GF1 a CS4231,
+takze topologie i wave tridy jsou pro oba mody stejne.
+
+Vlastni implementace je velmi podobna te na blaster a podobne karty, tj.
+"opravdovy" cyklicky DMA buffer, notifikace se generuji pres preruseni
+od CS4231 (nastane vzdy po prehrany daneho kusu dat nezavisle na velikosti
+DMA bufferu, tedy presne to, na co byl Microsofti interface navrzen).
+
+Co se topologie tyce, je to trochu slozitejsi. Datove struktury popisujici
+zapojeni umoznuji takrka cokoliv, ale zpusob, jakym s takovym vysledkem
+zachazeji Windows je nekdy trochu podivny. Aby se proto v ovladani hlasitosti
+objevila rozumna tahatka, bylo nutno Windowsum o topologii trochu lhat.
+Napriklad veci jako "zpetne vazby" nebo prilis slozita rozvetveni Billa
+dokonale zmatou. Je nutne prinejmensim zarucit, aby byla kazda cesta ze
+vstupnich pinu do vystupnich pinu jednoznacna. Proto byly zavedeny
+imaginarni vstupy jako "what you hear" (ve skutecnosti drat mezi mixerem
+a muxem pred A/D prevodnikem) apod.
+
+Podporovana podmonozina mixeru je opet pekne v ascii vyvedena v 'topotab.cpp'.
+(Pozn.: nakres ukazuje, jak mixer vypada, ne jak je predveden windowsum)
+
+
+Dalsi implementacni poznamky:
+-----------------------------
+
+Co me napada (o cem by mozna stalo za to se zminit):
+
+- Kazdy pristup na HW je nutne synchronizovat s prerusenim. Vetsina registru
+  se totiz adresuje neprimo (na nekterem portu je "select reg", jinde "reg data").
+  Protoze obslouzit preruseni GF1 (+CS4231) je pomerne slozite a se spoustou
+  registru se cvici, nemuze zbytek kodu na tyto registry jen tak sahat a musi
+  se zarucit, ze vzdy bezi prave jedno sahani na HW. To v NT nejde delat nejakym
+  zamkem nebo tak necim, ale pouziva se CallSynchronizedRoutine (takova fce
+  pak muze na pocitaci [i SMP] bezet maximalne jedna patrici do dane skupiny,
+  mezi ne se pocitaji i obsluhy preruseni). Proto je zde spousta funkci, ktere
+  maji zahadny parametr 'void * context' (po billovsku PVOID).
+
+- Vetsina debugovacich hlasek miri do registru. To je sice celkem prasarna,
+  ale do prace s NT logy jsem neproniknul (a w98 nic takoveho snad ani nemaji).
+
+- Kod obsahuje par veci, ktere by nebyly nutne. Jsou tam proto, aby slo
+  nekdy v budoucnu udelat HW MIDI, veci pracujici s vymozenostmi PnP, ...:
+  - Dram dma - pro potreby pouheho GF1 waveout by slo znacne zjednodusit
+  - Struktury pro alokaci jednotlivych kanalu. Notifikace pri zvlastnich
+    udalostech nad temito kanaly jako "byl ti ukraden" nebo "zmenila se
+    frekvence na ktere GF1 mixuje" apod.
+  - Enhanced synth mode - rozsireny mod Interwave syntezatoru se sice
+    nevyuziva, ale existuji fragmenty kodu, ktere s nim pocitaji (neni
+    totiz uplne kompatibilni s originalnim GF1). Pri inicializaci PnP je
+    nutne do nej na cas prejit.
+
+
+
+Strucny popis zdrojaku:
+======================
+
+ Obecne reci:
+ -----------
+   Vsechny zdrojaky jsou napsany v C++, nebot WDM audio je zalozeno
+   na COMech. Jednotlive miniporty, reprezentujici funckni jednotky
+   podporovane zvukovou kartou, jsou definovany jako C++ objekty
+   splnujici COM objektovy model.
+
+ Hlavni:
+ ------
+
+   bbsgf1.cpp - Vstupni bod pri spousteni driveru. Obsahuje vytvareni,
+                registraci a propojovani komponent driveru - audio miniportu
+                a portu.
+
+   gf1cmn.h, gf1cmnc.h - Hlavni objekt CGF1Common, ktery reprezentuje
+                fyzicke zarizeni, obsahuje funkce pro pristup k registrum
+                zvukovky a tak vubec obsahuje spolecne veci sdilene vsemi
+                miniporty. Implementace je kvuli prehlednosti rozkouskovana
+                do nekolika cpp souboru.
+
+   gf1init.cpp - Inicializace zarizeni - detekce pridelenych prostredku
+                (DMAs, IRQs, IO porty), detekce karty (GUS GF1, PnP, Max, ...),
+                detekce pameti, nastaveni obsluhy preruseni, konfigurace
+                karty (nastaveni DMA, ...) a jeji reset.
+
+   gf1int.cpp - Obsahuje funkce pro obsluhu preruseni od zvukovky (zjisteni
+                zdroje preruseni, notifikace miniportu, ...).
+
+   dramdma.cpp - "Emulace" scatter-gather DMA prenosu mezi systemovou pameti a
+		RAMkou na karte. Udrzuje seznam pozadavku na prenosy a pokud
+		je DMA kanal volny, postupne cpe data do zvukovky (pripadne
+		je rozsekava na mensi casti podle limitaci DMA adapteru,
+		GUSa apod.). Protoze objektova rozhrani WDM audio jsou znacne
+		orezana a nepouzitelna, pouziva klasicka neobjektova WDM
+		NT-like volani (nastesti to i win98 umi).
+
+   gf1wave.cpp - Implementace WAVE miniportu (wavein, waveout) pro GUS GF1
+                kompatibilni.
+
+   gf1wavep.cpp - Implementace prehravani (playback) pro GUS GF1 kompatibilni.
+   gf1waver.cpp - Implementace nahravani (recording) pro GUS GF1 kompatibilni.
+
+   cswave.cpp - Implementace WAVE miniportu (wavein, waveout) pro karty
+                obsahujici CS4231 kompatibilni Codec - GUS MAX, GUS PnP.
+
+   cswaves.cpp - Implementace prehravani a nahravani (playback & recording)
+                pro karty obsahujici Codec - GUS Max, GUS PnP.
+
+   topo.cpp -  Implementace TOPOLOGY miniportu a handlery pro ovladani
+               hlasitosti, mutovani, vyber zdroje recordingu, ...
+
+   topotab.cpp - Definice struktur, ktere popisuji topologie GUSe.
+
+
+ Vedlejsi:
+ --------
+
+   gf1voice.cpp - Funkce pro ovladani zvukovych kanalu.
+
+   codec.cpp - Funkce pro praci s CODECem.
+
+   iwinit.cpp - Inicializace specificka pro GUS InterWave PnP.
+
+   iwvoice.cpp - Specificke funcke pro GUS InterWave Pnp.
+
+   registry.cpp - Pristup k Windows registrum.
+
+   csregs.h, iwregs.h, gf1regs.h, gf1tabs.cpp - Popisy registru GUS karet,
+                definice a tabuluky pro prevod frekvenci, apod.
+

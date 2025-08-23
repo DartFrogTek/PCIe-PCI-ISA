@@ -1,0 +1,54 @@
+Supported Cards
+===============
+
+Gravis UltraSound (ICS-2101 mixer not supported)
+Gravis UltraSound Ace (not tested)
+Gravis UltraSound MAX (NOT tested!)
+Gravis UltraSound PnP
+
+Right now I don't have any information about Viper, PnP-compatibles, ...
+
+
+
+Tested Configurations
+=====================
+
+Stoupa's GUS Classic (W98SE / W2k)
+- Wavetable IRQ problems.
+
+GUS PnP (W98SE / W2k)
+- Some recording problems (ask Systole for more info about this :-)
+- Restarting problems.
+
+
+
+Should Work
+===========
+
+GF1 waveout (Classic / Ace)
+- mono / stereo
+- 8 / 16bit
+- 19293 - 44100 Hz
+
+GF1 wavein (Classic / Ace)
+- mono / stereo
+- 8bit
+- 4400 - 88200 Hz
+
+GF1 mixer (Classic / Ace)
+- three great mutes; software waveout volume
+
+CS4231 waveout/wavein (Max / PnP)
+- mono / stereo
+- 8 / 16bit
+- 5512 - 48000 Hz
+- full-duplex (independent frequencies on PnP)
+
+CS4231 mixer (Max / PnP)
+- various volume/mute controls
+- recording source
+- (master volume is PnP-only!)
+
+
+
+See "todo.txt" to see what does NOT work.

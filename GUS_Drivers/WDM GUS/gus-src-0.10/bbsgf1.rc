@@ -1,0 +1,56 @@
+/*
+ *
+ * bbsgf1.rc
+ *
+ * Version strings
+ *
+
+   Copyright (C) 2000 contributors of the Gravis UltraSound WDM Driver project
+   Please see the file "AUTHORS" for a list of contributors
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License
+   as published by the Free Software Foundation; either version 2
+   of the License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+   See the GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to:
+
+        Free Software Foundation, Inc.
+        59 Temple Place - Suite 330
+        Boston, MA  02111-1307, USA
+
+ *
+ */
+
+#include <windows.h>
+
+#include <ntverp.h>
+
+#define VER_FILETYPE				VFT_DRV
+#define VER_FILESUBTYPE				VFT2_DRV_SOUND
+
+#ifdef VER_COMPANYNAME_STR
+#undef VER_COMPANYNAME_STR
+#endif
+#define VER_COMPANYNAME_STR			"BlueBeam Squad"
+
+#ifdef VER_PRODUCTNAME_STR
+#undef VER_PRODUCTNAME_STR
+#endif
+#define VER_PRODUCTNAME_STR			"Gravis UltraSound Driver (WDM)"
+
+#define VER_FILEDESCRIPTION_STR		"Gravis UltraSound Driver (WDM)"
+#define VER_INTERNALNAME_STR		"bbsgf1.sys"
+#define VER_ORIGINALFILENAME_STR	"bbsgf1.sys"
+
+#define VER_LEGALCOPYRIGHT_YEARS	"2000"
+#define VER_LEGALCOPYRIGHT_STR		"Copyright (c) BlueBeam Squad" VER_LEGALCOPYRIGHT_YEARS
+
+#include "common.ver"

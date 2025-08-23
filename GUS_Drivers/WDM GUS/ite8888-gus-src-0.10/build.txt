@@ -1,0 +1,5 @@
+# For NT build environment
+build -cZ
+
+# For WIN95 build environment  
+nmake

@@ -1,0 +1,474 @@
+; bbsgf1.inf
+;
+; Installation file (.inf) for the Gravis UltraSound device.
+;
+; Copyright (C) 2000 contributors of the Gravis UltraSound WDM Driver project
+; Please see the file "AUTHORS" for a list of contributors
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation; either version 2
+; of the License, or (at your option) any later version.
+;
+; This program is distributed in the hope that it will be useful,
+; but WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+;
+; See the GNU General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, write to:
+;
+;       Free Software Foundation, Inc.
+;       59 Temple Place - Suite 330
+;       Boston, MA  02111-1307, USA
+;
+
+
+;********************
+;*
+;* W98se Install
+;*
+;********************
+
+[Version]
+Signature="$Chicago$"
+Provider=%BBS%
+ClassGUID={4D36E96C-E325-11CE-BFC1-08002BE10318}
+Class=Media
+DriverVer=06/07/2000,5.00.2195.0010
+
+
+
+;
+; Driver information
+;
+
+
+[Manufacturer]
+%BBS% = BBS.Mfg
+
+
+[BBS.Mfg]
+%BBS.DeviceDesc0% = BBSGF1, GusClassic
+
+; Gravis UltraSound PnP (InterWave)
+; FIXME: Remove this note:
+; NOTE: Devices marked as "?" were not detected on my UltraSound PnP InterWave card.
+; FIXME: Make PNPB02F DUMMY device? Will windows install default drivers for DUMMY
+;        devices?
+%*GRV0001_DEV0000.DeviceDesc%=BBSPNP,    *GRV0000   ;   Synth/Codec
+%*GRV0001_DEV0003.DeviceDesc%=BBS_DUMMY, *GRV0003   ; ? FM/SB Emulation
+%*GRV0001_DEV0004.DeviceDesc%=BBS_DUMMY, *GRV0004   ; ? MPU-401 Emulation
+%*GRV0001_DEV0010.DeviceDesc%=BBS_DUMMY, *GRV0010   ; ? Synth/Codec
+%*GRV0001_DEV0011.DeviceDesc%=BBS_DUMMY, *GRV0011   ;   CD-ROM Interface
+%*GRV0001_DEV0012.DeviceDesc%=BBS_DUMMY, *GRV0012   ; ? Game Port
+%*GRV0001_DEV0013.DeviceDesc%=BBS_DUMMY, *GRV0013   ;   FM/SB Emulation
+%*GRV0001_DEV0014.DeviceDesc%=BBS_DUMMY, *GRV0014   ;   MPU-401 Emulation
+;;%*PNPB02F.DeviceDesc%=IW_DUMMY,,       *PNPB02F    ; Joystick Interface
+
+[ControlFlags]
+;;FIXME: Exclude all DUMMY devices in final version.
+ExcludeFromSelect = *GRV0003
+ExcludeFromSelect = *GRV0004
+ExcludeFromSelect = *GRV0010
+;;ExcludeFromSelect = *GRV0011
+ExcludeFromSelect = *GRV0012
+;;ExcludeFromSelect = *GRV0013
+;;ExcludeFromSelect = *GRV0014
+
+;
+; General installation section
+;
+
+
+;--------------------------------------------------------------------
+; DUMMY
+;--------------------------------------------------------------------
+;
+; The following section is left empty since this INF doesn't provide support
+; the corresponding functions.  Installation for these functions will actually
+; fail, but this allows us to give the user a 'Windows NT default driver" for
+; each function on the card.
+;
+[BBS_DUMMY]
+
+; Windows 98 doesn't support [BBS_DUMMY.Services] section.
+
+
+;--------------------------------------------------------------------
+; UltraSound PnP (InterWave)
+;--------------------------------------------------------------------
+
+[BBSPNP]
+AlsoInstall=KS.Registration(ks.inf),WDMAUDIO.Registration(wdmaudio.inf)
+AddReg = BBSPNP.AddReg, BBSGF1_Names.AddReg
+CopyFiles = BBSGF1.CopyFiles
+
+[BBSPNP.AddReg]
+HKR,,AssociatedFilters,,"wdmaud,swmidi,redbook"
+HKR,,Driver,,bbsgf1.sys
+HKR,Drivers,SubClasses,,"wave,midi,mixer"
+
+HKR,,NTMPDriver,,"bbsgf1.sys,sbemul.sys"
+
+HKR,Drivers\wave\wdmaud.drv, Driver,,wdmaud.drv
+HKR,Drivers\midi\wdmaud.drv, Driver,,wdmaud.drv
+HKR,Drivers\mixer\wdmaud.drv,Driver,,wdmaud.drv
+
+HKR,Drivers\wave\wdmaud.drv,Description,,%*GRV0001_DEV0000.DeviceDesc%
+HKR,Drivers\midi\wdmaud.drv,Description,,%*GRV0001_DEV0000.DeviceDesc%
+HKR,Drivers\mixer\wdmaud.drv,Description,,%*GRV0001_DEV0000.DeviceDesc%
+
+[BBSPNP.Interfaces]
+AddInterface = %KSCATEGORY_AUDIO%,    %KSName_Wave%,     BBSPNP.Iface.Wave
+AddInterface = %KSCATEGORY_RENDER%,   %KSName_Wave%,     BBSPNP.Iface.Wave
+AddInterface = %KSCATEGORY_CAPTURE%,  %KSName_Wave%,     BBSPNP.Iface.Wave
+AddInterface = %KSCATEGORY_AUDIO%,    %KSName_Topology%, BBSPNP.Iface.Topo
+AddInterface = %KSCATEGORY_TOPOLOGY%, %KSName_Topology%, BBSPNP.Iface.Topo
+
+[BBSPNP.Iface.Wave]
+AddReg = BBSPNP.Iface.Wave.AddReg
+
+[BBSPNP.Iface.Wave.AddReg]
+HKR,,FriendlyName,,%BBSPNP.Wave.Name%
+HKR,,CLSID,,%Proxy.CLSID%
+
+[BBSPNP.Iface.Topo]
+AddReg = BBSPNP.Iface.Topo.AddReg
+
+[BBSPNP.Iface.Topo.AddReg]
+HKR,,FriendlyName,,%BBSPNP.Topology.Name%
+HKR,,CLSID,,%Proxy.CLSID%
+
+
+;--------------------------------------------------------------------
+; Ultrasound Classic (GF1)
+;--------------------------------------------------------------------
+
+[BBSGF1]
+AlsoInstall = ks.registration(ks.inf),wdmaudio.registration(wdmaudio.inf)
+LogConfig = GF1.LCI2D2, GF1.LCI1D2, GF1.LCI2D1, GF1.LCI1D1
+AddReg = BBSGF1.AddReg, BBSGF1_Names.AddReg
+CopyFiles = BBSGF1.CopyFiles
+
+
+[BBSGF1.AddReg]
+HKR,,AssociatedFilters,,"wdmaud,swmidi,redbook"
+HKR,,Driver,,bbsgf1.sys
+HKR,,NTMPDriver,,"bbsgf1.sys,sbemul.sys"
+
+HKR,Drivers,SubClasses,,"wave,midi,mixer"
+
+HKR,Drivers\wave\wdmaud.drv, Driver,,wdmaud.drv
+HKR,Drivers\midi\wdmaud.drv, Driver,,wdmaud.drv
+HKR,Drivers\mixer\wdmaud.drv,Driver,,wdmaud.drv
+
+HKR,Drivers\wave\wdmaud.drv,Description,,%BBS.DeviceDesc0%
+HKR,Drivers\midi\wdmaud.drv,Description,,%BBS.DeviceDesc0%
+HKR,Drivers\mixer\wdmaud.drv,Description,,%BBS.DeviceDesc0%
+
+
+[BBSGF1_Names.AddReg]
+HKLM,%MediaCategories%\%GUSGUID.MasterMix%,Name,,%GUSNode.MasterMix%
+HKLM,%MediaCategories%\%GUSGUID.MasterMix%,Display,1,00,00,00,00
+HKLM,%MediaCategories%\%GUSGUID.MixerIn%,Name,,%GUSNode.MixerIn%
+HKLM,%MediaCategories%\%GUSGUID.MixerIn%,Display,1,00,00,00,00
+
+
+[BBSGF1.Interfaces]
+AddInterface = %KSCATEGORY_AUDIO%,    %KSNAME_Wave%,     BBSGF1.Iface.Wave
+AddInterface = %KSCATEGORY_RENDER%,   %KSNAME_Wave%,     BBSGF1.Iface.Wave
+AddInterface = %KSCATEGORY_CAPTURE%,  %KSNAME_Wave%,     BBSGF1.Iface.Wave
+AddInterface = %KSCATEGORY_AUDIO%,    %KSNAME_Topology%, BBSGF1.Iface.Topo
+AddInterface = %KSCATEGORY_TOPOLOGY%, %KSNAME_Topology%, BBSGF1.Iface.Topo
+
+
+[BBSGF1.Iface.Wave]
+AddReg=BBSGF1.Iface.Wave.AddReg
+
+[BBSGF1.Iface.Wave.AddReg]
+HKR, , CLSID, , %Proxy.CLSID%
+HKR, , FriendlyName, , %BBSGF1.Wave.Name%
+
+
+[BBSGF1.Iface.Topo]
+AddReg=BBSGF1.Iface.Topo.AddReg
+
+[BBSGF1.Iface.Topo.AddReg]
+HKR, , CLSID, , %Proxy.CLSID%
+HKR, , FriendlyName, , %BBSGF1.Topology.Name%
+
+
+
+
+;
+; File sections
+;
+
+[DestinationDirs]
+BBSGF1.CopyFiles = 10, system32\drivers
+
+
+[BBSGF1.CopyFiles]
+bbsgf1.sys
+
+
+
+;
+; Configuration
+;
+
+[BBSGF1.FactDef]
+ConfigPriority = NORMAL
+IOConfig = 220-22f
+IOConfig = 320-32f
+IOConfig = 726-726
+IRQConfig = 5  ; GF1 IRQ
+IRQConfig = 7  ; SB/Midi IRQ
+DMAConfig = 5  ; Playback DMA
+DMAConfig = 6  ; Record DMA
+
+
+[GF1.LCI2D2]
+ConfigPriority = NORMAL
+IOConfig = 220-22f, 240-24f, 210-21f, 230-23f, 250-25f, 260-26f
+IOConfig = 320-32f, 340-34f, 310-31f, 330-33f, 350-35f, 360-36f
+IOConfig = 726-726, 746-746, 716-716, 736-736, 756-756, 766-766
+IRQConfig = 3, 5, 7, 9, 11, 12, 15
+IRQConfig = 3, 5, 7, 9, 11, 12, 15
+DMAConfig = 1, 3, 5, 6, 7
+DMAConfig = 1, 3, 5, 6, 7
+
+
+[GF1.LCI1D2]
+ConfigPriority = NORMAL
+IOConfig = 220-22f, 240-24f, 210-21f, 230-23f, 250-25f, 260-26f
+IOConfig = 320-32f, 340-34f, 310-31f, 330-33f, 350-35f, 360-36f
+IOConfig = 726-726, 746-746, 716-716, 736-736, 756-756, 766-766
+IRQConfig = 3, 5, 7, 9, 11, 12, 15
+DMAConfig = 1, 3, 5, 6, 7
+DMAConfig = 1, 3, 5, 6, 7
+
+
+[GF1.LCI2D1]
+ConfigPriority = NORMAL
+IOConfig = 220-22f, 240-24f, 210-21f, 230-23f, 250-25f, 260-26f
+IOConfig = 320-32f, 340-34f, 310-31f, 330-33f, 350-35f, 360-36f
+IOConfig = 726-726, 746-746, 716-716, 736-736, 756-756, 766-766
+IRQConfig = 3, 5, 7, 9, 11, 12, 15
+IRQConfig = 3, 5, 7, 9, 11, 12, 15
+DMAConfig = 1, 3, 5, 6, 7
+
+
+[GF1.LCI1D1]
+ConfigPriority = NORMAL
+IOConfig = 220-22f, 240-24f, 210-21f, 230-23f, 250-25f, 260-26f
+IOConfig = 320-32f, 340-34f, 310-31f, 330-33f, 350-35f, 360-36f
+IOConfig = 726-726, 746-746, 716-716, 736-736, 756-756, 766-766
+IRQConfig = 3, 5, 7, 9, 11, 12, 15
+DMAConfig = 1, 3, 5, 6, 7
+
+
+
+;
+; Source file information
+;
+
+[SourceDisksNames.x86]
+666 = %DiskId1%,,,""
+
+
+[SourceDisksFiles.x86]
+; Files for disk BlueBeam Squad Installation Disk #1 (Media)
+bbsgf1.sys = 666,,
+
+
+
+;******************
+;*
+;*  W2k Install
+;*
+;******************
+
+
+;--------------------------------------------------------------------
+; DUMMY
+;--------------------------------------------------------------------
+
+;
+; The following sections are left empty since this INF doesn't provide support
+; the corresponding functions.  Installation for these functions will actually
+; fail, but this allows us to give the user a 'Windows NT default driver" for
+; each function on the card.
+;
+[BBS_DUMMY.NT]
+
+;
+; We also have to have the corresponding service install sections for the above
+; 'dummy' install sections, or else the NT MEDIA class installer will reject the
+; driver node as Win95-only.
+;
+[BBS_DUMMY.NT.Services]
+
+AddService=,0x2
+
+
+;--------------------------------------------------------------------
+; UltraSound PnP (InterWave)
+;--------------------------------------------------------------------
+
+[BBSPNP.ntx86]
+Include=ks.inf, wdmaudio.inf
+Needs=KS.Registration, WDMAUDIO.Registration
+AddReg = BBSPNP.AddReg, BBSGF1_Names.AddReg
+CopyFiles = BBSGF1.CopyFiles, Audio.Copy.Sys
+
+[BBSPNP.ntx86.Interfaces]
+AddInterface = %KSCATEGORY_AUDIO%,    %KSName_Wave%,     BBSPNP.Iface.Wave
+AddInterface = %KSCATEGORY_RENDER%,   %KSName_Wave%,     BBSPNP.Iface.Wave
+AddInterface = %KSCATEGORY_CAPTURE%,  %KSName_Wave%,     BBSPNP.Iface.Wave
+AddInterface = %KSCATEGORY_AUDIO%,    %KSName_Topology%, BBSPNP.Iface.Topo
+AddInterface = %KSCATEGORY_TOPOLOGY%, %KSName_Topology%, BBSPNP.Iface.Topo
+
+[BBSPNP.ntx86.Services]
+AddService = BBSPNP, 0x00000002, BBSPNP.Service.inst
+
+[BBSPNP.Service.inst]
+DisplayName   = %BBSPNP.ServiceDescription%
+ServiceType   = 1                  ; SERVICE_KERNEL_DRIVER
+StartType     = 3                  ; SERVICE_DEMAND_START
+ErrorControl  = 1                  ; SERVICE_ERROR_NORMAL
+ServiceBinary = %10%\system32\drivers\bbsgf1.sys
+
+
+;--------------------------------------------------------------------
+; Ultrasound Classic (GF1)
+;--------------------------------------------------------------------
+
+[BBSGF1.ntx86]
+include = ks.inf, wdmaudio.inf
+needs = KS.Registration, WDMAUDIO.Registration
+LogConfig = GF1.LCI2D2, GF1.LCI1D2, GF1.LCI2D1, GF1.LCI1D1
+AddReg = BBSGF1.AddReg, BBSGF1_Names.AddReg
+CopyFiles = BBSGF1.CopyFiles, Audio.Copy.Sys
+
+
+[Audio.Copy.Sys.ntx86]
+stream.sys
+
+[BBSGF1.ntx86.Interfaces]
+AddInterface = %KSCATEGORY_AUDIO%,    %KSNAME_Wave%,     BBSGF1.Iface.Wave
+AddInterface = %KSCATEGORY_RENDER%,   %KSNAME_Wave%,     BBSGF1.Iface.Wave
+AddInterface = %KSCATEGORY_CAPTURE%,  %KSNAME_Wave%,     BBSGF1.Iface.Wave
+AddInterface = %KSCATEGORY_AUDIO%,    %KSNAME_Topology%, BBSGF1.Iface.Topo
+AddInterface = %KSCATEGORY_TOPOLOGY%, %KSName_Topology%, BBSGF1.Iface.Topo
+
+;
+; Service Installation
+;
+
+[BBSGF1.ntx86.Services]
+AddService = bbsgf1, 0x00000002 , bbsgf1.Service.Inst
+
+[bbsgf1.Service.Inst]
+DisplayName   = %bbsgf1.SvcDesc%
+ServiceType   = 1                  ; SERVICE_KERNEL_DRIVER
+StartType     = 3                  ; SERVICE_DEMAND_START
+ErrorControl  = 1                  ; SERVICE_ERROR_NORMAL
+ServiceBinary = %10%\system32\drivers\bbsgf1.sys
+
+
+
+
+;
+; Configuration
+;
+
+[BBSGF1.ntx86.FactDef]
+ConfigPriority = NORMAL
+IOConfig = 220-22f
+IOConfig = 320-32f
+IOConfig = 726-726
+IRQConfig = 5  ; GF1 IRQ
+IRQConfig = 7  ; SB/Midi IRQ
+DMAConfig = 5  ; Playback DMA
+DMAConfig = 6  ; Record DMA
+
+
+
+;
+; STRINGS
+;
+
+[Strings]
+
+;
+; Non-Localizable Strings
+;
+
+REG_SZ         = 0x00000000
+REG_MULTI_SZ   = 0x00010000
+REG_EXPAND_SZ  = 0x00020000
+REG_BINARY     = 0x00000001
+REG_DWORD      = 0x00010001
+SERVICEROOT    = "System\CurrentControlSet\Services"
+
+; Note that some of the string names can not be localized because
+; they are used directly by the driver source code. If the string
+; names are changed, system setup will not load the drivers. For example,
+; in AddInterface entries, the following string names for the KSCATEGORY_Xxx
+; device interfaces must be used:
+
+KSNAME_Wave="Wave"
+KSNAME_UART="UART"
+KSNAME_FMSynth="FMSynth"
+KSNAME_Topology="Topology"
+KSNAME_Wavetable="Wavetable"
+
+KSCATEGORY_AUDIO    = "{6994AD04-93EF-11D0-A3CC-00A0C9223196}"
+KSCATEGORY_RENDER   = "{65E8773E-8F56-11D0-A3B9-00A0C9223196}"
+KSCATEGORY_CAPTURE  = "{65E8773D-8F56-11D0-A3B9-00A0C9223196}"
+KSCATEGORY_TOPOLOGY = "{DDA54A40-1E4C-11D1-A050-405705C10000}"
+
+Proxy.CLSID = "{17CCA71B-ECD7-11D0-B908-00A0C9223196}"
+
+MediaCategories   = "SYSTEM\CurrentControlSet\Control\MediaCategories"
+GUSGUID.MasterMix = "{E8A82259-4483-479b-95E5-879663E89806}"
+GUSGUID.MixerIn   = "{DADF86BF-1CC5-4472-B325-5011FFD138B3}"
+
+
+;
+; Localizable Strings
+;
+
+DiskId1 = "BlueBeam Squad Installation Disk"
+BBS = "BlueBeam Squad"
+
+
+GUSNode.MasterMix = "Master Mix"
+GUSNode.MixerIn   = "What U Hear"
+
+
+BBS.DeviceDesc0 = "Gravis UltraSound"
+
+*GRV0001_DEV0000.DeviceDesc="UltraSound Plug & Play Synth/Codec (WDM)"
+*GRV0001_DEV0003.DeviceDesc="UltraSound Plug & Play FM/SB Emulation (DISABLED)"
+*GRV0001_DEV0004.DeviceDesc="UltraSound Plug & Play MPU-401 Emulation (DISABLED)"
+*GRV0001_DEV0010.DeviceDesc="UltraSound Plug & Play Synth/Codec (DISABLED)"
+*GRV0001_DEV0011.DeviceDesc="UltraSound Plug & Play CD-ROM Interface (DISABLED)"
+*GRV0001_DEV0012.DeviceDesc="UltraSound Plug & Play Game Port (DISABLED)"
+*GRV0001_DEV0013.DeviceDesc="UltraSound Plug & Play FM/SB Emulation (DISABLED)"
+*GRV0001_DEV0014.DeviceDesc="UltraSound Plug & Play MPU-401 Emulation (DISABLED)"
+;*PNPB02F.DeviceDesc="UltraSound Joystick Interface"
+
+
+BBSGF1.Wave.Name = "Gravis UltraSound"
+BBSGF1.Topology.Name= "Gravis UltraSound Mixer"
+
+BBSPNP.Wave.Name = "Gravis UltraSound PnP"
+BBSPNP.Topology.Name = "Gravis UltraSound PnP Mixer"
+
+; FIXME: Make this same "syntax" style.
+bbsgf1.SvcDesc = "Gravis UltraSound (WDM)"
+BBSPNP.ServiceDescription ="Gravis UltraSound PnP (WDM)"

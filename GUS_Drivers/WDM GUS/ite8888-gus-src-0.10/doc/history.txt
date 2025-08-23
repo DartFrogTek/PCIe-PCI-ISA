@@ -1,0 +1,174 @@
+Gravis UltraSound WDM Driver Project - Release History
+======================================================
+
+
+7.6.2000
+--------
+
+v 0.10
+
+Tried to fix some GF1-related bugs (GUS classic).
+Added more debugging variables.
+DRAM DMA adapter is allocated only once now.
+Note: IRQ sharing doesn't work on my board, so try it.
+
+
+
+5.6.2000
+--------
+
+v 0.9
+
+First public release
+Wrote readmes, distributed under GPL now:
+
+What should work:
+- GF1 waveout (Classic / Ace)
+  - mono / stereo
+  - 8 / 16bit
+  - 19293 - 44100 Hz
+- GF1 wavein (Classic / Ace)
+  - mono / stereo
+  - 8bit
+  - 4400 - 88200 Hz
+- GF1 mixer (Classic / Ace)
+  - three great mutes; software waveout volume
+- CS4231 waveout/wavein (Max / PnP)
+  - mono / stereo
+  - 8 / 16bit
+  - 5512 - 48000 Hz
+  - full-duplex (independent frequencies on PnP)
+- CS4231 mixer (Max / PnP)
+  - various volume/mute controls
+  - recording source
+  - (master volume is PnP-only!)
+
+What does not work / is not done yet:
+- HW MIDI acceleration (synth)
+- MIDI port
+- CS4231 simplex mode (shared DMA channels) (?)
+- Standby mode, power-saving stuff
+
+Never tested:
+- GUS Max, Ace, Viper, ...
+  - Tries to use CS4231 on Max, but I really don't know if it works
+  - Other boards are used in "GF1 mode"
+
+Known problems:
+- Computer freezes during restart/shutdown sequence under w2k
+- Recording is probably not perfect
+- Clicks
+- My GUS Classic sometimes does not generate wavetable IRQs
+  (playback / recording stops or does not start). I still don't
+  know if it is:
+  a) driver bug, or
+  b) GF1 bug, or
+  c) my board bug
+
+
+
+26.5.2000
+---------
+
+v 0.8
+
+Final "OSY" version - it received whopping 30 of 30 credits.
+
+Codec mode 3 supported - master volume, micin volume, independent
+ sampling frequencies.
+
+
+
+25.5.2000
+---------
+
+v 0.7
+
+CS4231 topology.
+Saving mixer settings to registry, restored in driver initialization.
+
+
+
+23.5.2000
+---------
+
+v 0.6
+
+Codec interrupt handling and notification callbacks.
+CS4231 wavein and waveout.
+
+
+
+21.5.2000
+---------
+
+v 0.5
+
+Another cleanup (split gf1cmn.h).
+Small DRAM DMA fixes.
+Events when DMA transfer finishes.
+Fixed waveout deallocating buffers too soon bug.
+DMA channel "allocation" - Codec, DRAM and GF1 recording now
+ know who owns what.
+Voice allocation, notifications (voice stolen, frequency changed).
+Ace, Viper and ICS2102 (?) detected and used as GUS classic.
+Many fixes to GF1 wave playback.
+GF1 wave recording.
+
+
+
+19.5.2000
+---------
+
+v 0.4
+
+Major cleanup - divided gf1cmn.cpp into more smaller sources.
+GF1 waveout.
+Fixed inf - should install under win98se now.
+DRAM DMA is now using slower speed (removes some clicks on my faulty board).
+Fixed some IRQL problems in DRAM DMA downloads.
+More Interwave stuff.
+Many that-was-paged-but-it's-nonpaged-now style changes.
+Interrupt callbacks (wave, ramp and AdLib timer).
+
+
+
+16.5.2000
+---------
+
+v 0.3
+
+Many changes to support Gus PnP
+
+
+
+16.5.2000
+---------
+
+v 0.2
+
+DRAM DMA patrne chodi - pridan check na TC IRQ a testovani spravnosti prenosu.
+GF1 topology miniport - v podstate kompletni.
+GF1 waveout - nedodelan.
+GF1 wavein - takrka nic.
+
+
+
+12.5.2000
+---------
+
+v 0.1
+
+Naznak DRAM DMA scatter/gather emulace.
+Opravena inicializace, vsechny checky u mne vzdy projdou.
+
+
+
+10.5.2000
+---------
+
+v 0.0
+
+Zaklad GF1Common a debugovani do registru.
+Nefunkcni inicializace.
+Prace s porty a tak.

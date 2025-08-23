@@ -1,0 +1,19 @@
+Gravis UltraSound WDM Driver Project - History and Future
+=========================================================
+
+This driver started as a school work for Operating Systems seminar.
+We already received credits for it, so Systole won't work on it anymore.
+And because I no longer have enough time, energy or hardware to further
+develop this driver, we decided to release it in this sorry state
+under GPL.
+
+So if anyone would like to contribute in any way to the BBSGF1 project,
+please contact me at stoupa@popelka.ms.mff.cuni.cz.
+
+I would like to hear from anyone who could:
+- Test and DEBUG the driver
+- Take care of inet stuff (web pages, CVS repository, mailing lists, ...)
+  sourceforge.net
+- "Lead/coordinate" the project - I won't be on inet very often for a few
+  months, so don't assume I will be able to answer mails quickly.
+- Actually write something - see "todo.txt".

@@ -1,0 +1,72 @@
+Known Bugs
+==========
+
+W2k-does-not-restart (PnP only?). This happens always when CGF1Common
+still lives while windows shut down. I think it freezes the computer if
+going to standby mode too (but I can't check this since I no longer have
+PnP board).
+
+We encountered some recording problems on one of borrowed PnPs.
+
+My GUS Classic sometimes does not generate wavetable IRQs
+(playback / recording stops or doesn't start). I still don't
+know if it is:
+  a) driver bug, or
+  b) GF1 bug, or
+  c) my board bug
+
+GF1 recording has never been tested well, because of those wavetable
+IRQ problems. It probably doesn't work.
+
+Multiple GUS cards can't be probably used. The only "bug" I am aware
+of is the way handle to physical device object is "passed" to
+CGF1Common object. See notes "bbsgf1.cpp" for more notes on this.
+
+
+
+Test This
+=========
+
+Classic / Ace boards to check if wavetable IRQ bug is common GF1
+problem, bug in my board (GF1 3.4) or bug in my sources.
+
+Gravis UltraSound Max.
+
+Other weird cards (Viper, IW compatibles).
+
+SMP configurations.
+
+Recording from other sources than mixer (linein, micin).
+
+
+
+Do This (in random order)
+=========================
+
+Give/lend me some cards so I can continue writing the driver.
+
+Documentation - translate interesting parts of "doc.txt".
+
+CS4231 simplex mode (shared DMAs).
+
+Original CS4231 micin 20dB gain toggle (PnP does not have it).
+
+CS4231 daughterboard.
+
+Fake master out volumes (?)
+
+ICS-2101 mixer.
+
+Power saving stuff.
+
+UART miniport.
+
+DirectMusic synth miniport + enhanced InterWave mode.
+
+
+
+Assigned Tasks
+==============
+
+N: me
+T: none
