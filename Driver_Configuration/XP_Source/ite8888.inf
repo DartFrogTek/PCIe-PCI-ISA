@@ -1,0 +1,44 @@
+; ite8888.inf - Installation file for ITE8888 Bridge Driver
+
+[Version]
+Signature="$Windows NT$"
+Class=System
+ClassGuid={4D36E97D-E325-11CE-BFC1-08002BE10318}
+Provider=%ManufacturerName%
+DriverVer=01/01/2025,1.0.0.0
+
+[Manufacturer]
+%ManufacturerName%=Standard,NT
+
+[Standard.NT]
+%ITE8888.DeviceDesc%=ITE8888_Device, PCI\VEN_1283&DEV_8888
+
+[ITE8888_Device.NT]
+CopyFiles=Drivers_Dir
+
+[ITE8888_Device.NT.Services]
+AddService=ite8888,%SPSVCINST_ASSOCSERVICE%,ITE8888_Service_Inst
+
+[ITE8888_Service_Inst]
+DisplayName=%ITE8888.SVCDESC%
+ServiceType=1                  ; SERVICE_KERNEL_DRIVER
+StartType=3                    ; SERVICE_DEMAND_START
+ErrorControl=1                 ; SERVICE_ERROR_NORMAL
+ServiceBinary=%12%\ite8888.sys
+LoadOrderGroup=Extended Base
+
+[Drivers_Dir]
+ite8888.sys
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles]
+ite8888.sys  = 1,,
+
+[Strings]
+SPSVCINST_ASSOCSERVICE= 0x00000002
+ManufacturerName="ITE8888 Bridge Driver"
+DiskName="ITE8888 Installation Disk"
+ITE8888.DeviceDesc="ITE ITE8888 PCI-to-ISA Bridge"
+ITE8888.SVCDESC="ITE8888 Bridge Configuration Service"

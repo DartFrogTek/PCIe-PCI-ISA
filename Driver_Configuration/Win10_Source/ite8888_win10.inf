@@ -1,0 +1,61 @@
+[Version]
+Signature="$Windows NT$"
+Class=System
+ClassGuid={4D36E97D-E325-11CE-BFC1-08002BE10318}
+Provider=%ManufacturerName%
+DriverVer=01/01/2025,1.0.0.0
+CatalogFile=ite8888.cat
+PnpLockdown=1
+
+[Manufacturer]
+%ManufacturerName%=Standard,NTamd64,NTx86
+
+[Standard.NTamd64]
+%ITE8888.DeviceDesc%=ITE8888_Device, PCI\VEN_1283&DEV_8888
+
+[Standard.NTx86] 
+%ITE8888.DeviceDesc%=ITE8888_Device, PCI\VEN_1283&DEV_8888
+
+[ITE8888_Device.NTamd64]
+CopyFiles=Drivers_Dir
+FeatureScore=80
+
+[ITE8888_Device.NTx86]
+CopyFiles=Drivers_Dir
+FeatureScore=80
+
+[ITE8888_Device.NTamd64.Services]
+AddService=ite8888,%SPSVCINST_ASSOCSERVICE%,ITE8888_Service_Inst
+
+[ITE8888_Device.NTx86.Services]
+AddService=ite8888,%SPSVCINST_ASSOCSERVICE%,ITE8888_Service_Inst
+
+[ITE8888_Service_Inst]
+DisplayName=%ITE8888.SVCDESC%
+ServiceType=1
+StartType=3
+ErrorControl=1
+ServiceBinary=%13%\ite8888.sys
+LoadOrderGroup=Extended Base
+
+[Drivers_Dir]
+ite8888.sys
+
+[DestinationDirs]
+Drivers_Dir = 13
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles.NTamd64]
+ite8888.sys = 1,,
+
+[SourceDisksFiles.NTx86]
+ite8888.sys = 1,,
+
+[Strings]
+SPSVCINST_ASSOCSERVICE=0x00000002
+ManufacturerName="ITE8888 Driver"
+DiskName="ITE8888 Installation"
+ITE8888.DeviceDesc="ITE ITE8888 PCI-to-ISA Bridge"
+ITE8888.SVCDESC="ITE8888 Configuration Service"
