@@ -9,6 +9,9 @@ python IT8888F_ConfigTool.py \
   --enable-delayed-tx \
   -o gus_config.bin
 ```
+```bash
+python IT8888F_ConfigTool.py --claim-io "0x220,16,fast" --claim-io "0x330,8,fast" --claim-io "0x388,4,fast" --enable-subtractive --enable-delayed-tx -o gus_config.bin
+```
 
 - I/O Space 0: 0x220-0x22F (16 bytes, fast decode)
 - I/O Space 1: 0x330-0x337 (8 bytes, fast decode)

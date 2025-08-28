@@ -8,3 +8,8 @@ AT24C02_Programmer/CMakeCache.txt
 /AT24C02_Programmer/CMakeFiles
 /AT24C02_Programmer/generated
 AT24C02_Programmer/pico_flash_region.ld
+/AT24C02_Programmer/.idea
+/AT24C02_Programmer/pico_c/isa8888_programmer/CMakeFiles
+/AT24C02_Programmer/pico_c/isa8888_programmer/generated
+/AT24C02_Programmer/pico_c/isa8888_programmer/pico-sdk
+/AT24C02_Programmer/pico_c/isa8888_programmer/.vscode
