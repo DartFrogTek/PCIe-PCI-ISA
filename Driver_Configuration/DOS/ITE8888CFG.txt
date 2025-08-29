@@ -1,0 +1,16 @@
+This utility provides preset configurations, manual configuration, file save/load, and full register control for the ITE8888 bridge.
+
+Compilation instructions:
+
+For Watcom C:
+  wcl386 -l=dos4g ITE8888CFG.C
+
+For Borland C:
+  bcc -ml ITE8888CFG.C
+
+Usage examples:
+  ITE8888CFG                    ; Interactive mode
+  ITE8888CFG -preset GUS        ; Configure for GUS
+  ITE8888CFG -preset FDC        ; Configure for floppy controller  
+  ITE8888CFG -scan              ; Show current configuration
+  ITE8888CFG -reset             ; Reset to defaults

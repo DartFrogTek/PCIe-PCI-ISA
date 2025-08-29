@@ -1,4 +1,4 @@
-## Sound Cards  (UNTESTED)
+## Sound Cards  (TESTING)
 ## PicoGUS
 ```bash
 python IT8888F_ConfigTool.py \
@@ -7,10 +7,12 @@ python IT8888F_ConfigTool.py \
   --claim-io "0x388,4,fast" \
   --enable-subtractive \
   --enable-delayed-tx \
-  -o gus_config.bin
+  --config "TIMERS_MISC_CTRL=0x8C000000" \
+  -o gus_corrected_config.bin
 ```
+
 ```bash
-python IT8888F_ConfigTool.py --claim-io "0x220,16,fast" --claim-io "0x330,8,fast" --claim-io "0x388,4,fast" --enable-subtractive --enable-delayed-tx -o gus_config.bin
+python IT8888F_ConfigTool.py --claim-io "0x220,16,fast" --claim-io "0x330,8,fast" --claim-io "0x388,4,fast" --enable-subtractive --enable-delayed-tx --config "TIMERS_MISC_CTRL=0x8C000000" -o gus_corrected_config.bin
 ```
 
 - I/O Space 0: 0x220-0x22F (16 bytes, fast decode)

@@ -1,7 +1,16 @@
 // Use https://hexed.it/ to open .bin produced by AT24C02_Programmer.py
 // Select entire hex section.
-// Use CTRL-C to export selection as code snippet. Export as:
+// Use CTRL-C to export selection as code snippet.
+// Export as:
 // "C", "unsigned char", "ucDataBlock", "Hexadecimal", "Tab"
+
+// OR 
+
+// use python bin2header.py BINFILENAME.bin intel_hex_config.h
+// and replace contents
+
+#ifndef INTEL_HEX_CONFIG_H
+#define INTEL_HEX_CONFIG_H
 
 /*
 // it8888f_config.bin
@@ -58,3 +67,5 @@ unsigned char ucDataBlock[256] = {
 	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 	0xFF, 0xFF, 0xFF, 0xFF
 };
+
+#endif // INTEL_HEX_CONFIG_H
