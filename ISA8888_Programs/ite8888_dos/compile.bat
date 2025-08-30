@@ -1,0 +1,30 @@
+@ECHO OFF
+SETLOCAL
+
+REM Clear environment
+SET PATH=C:\WINDOWS\SYSTEM32;C:\WINDOWS;C:\WINDOWS\COMMAND
+SET INCLUDE=
+SET LIB=
+
+REM Set OpenWatcom
+SET WATCOM=C:\WATCOM
+SET PATH=C:\WATCOM\BINW;%PATH%
+SET INCLUDE=C:\WATCOM\H
+
+ECHO Compiling...
+C:\WATCOM\BINW\WCC.EXE -bt=dos -ml -ox ITE8888.C
+
+ECHO Linking...
+C:\WATCOM\BINW\WLINK.EXE system dos file ITE8888.OBJ name ITE8888CFG.EXE
+
+REM Check actual results instead of exit codes
+IF EXIST ITE8888CFG.EXE (
+    ECHO Build successful!
+    DIR ITE8888CFG.EXE
+    IF EXIST ITE8888.OBJ DEL ITE8888.OBJ
+) ELSE (
+    ECHO Build failed - no executable created
+)
+
+ENDLOCAL
+PAUSE
