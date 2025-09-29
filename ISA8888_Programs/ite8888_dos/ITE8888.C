@@ -1,21 +1,13 @@
 /*
  * ITE8888CFG.C - ITE8888 Universal ISA Bridge Configuration Utility v1.1
- * Compiles with OpenWatcom C for DOS
+ * Compiles with OpenWatcom C for 16-bit DOS
+ * Uses .386 directive for atomic 32-bit PCI configuration access
  * Usage: ITE8888CFG [options]
  */
 
 #if defined(__WATCOMC__)
     #include <conio.h>
     #include <i86.h>
-    // Don't redeclare inp/outp - they're already in conio.h
-    // Define 32-bit versions using existing 16-bit functions
-    #define inpd(port) ((unsigned long)inp(port) | ((unsigned long)inp(port+1)<<8) | ((unsigned long)inp(port+2)<<16) | ((unsigned long)inp(port+3)<<24))
-    #define outpd(port,val) do { \
-        outp(port, (val) & 0xFF); \
-        outp(port+1, ((val)>>8) & 0xFF); \
-        outp(port+2, ((val)>>16) & 0xFF); \
-        outp(port+3, ((val)>>24) & 0xFF); \
-    } while(0)
 #else
     #error "This version requires OpenWatcom C"
 #endif
@@ -28,6 +20,59 @@
 
 // OpenWatcom compatibility
 #define strcmpi stricmp
+
+// 32-bit PCI port I/O functions using .386 directive
+// These provide atomic 32-bit operations in 16-bit real mode
+
+static void outpd(unsigned short port, unsigned long value) {
+    _asm {
+        .386
+        mov dx, port
+        mov eax, value
+        out dx, eax
+    }
+}
+
+static unsigned long inpd(unsigned short port) {
+    unsigned long value;
+    _asm {
+        .386
+        mov dx, port
+        in eax, dx
+        mov value, eax
+    }
+    return value;
+}
+
+// raw opcodes with db
+/*
+static void outpd(unsigned short port, unsigned long value) {
+    _asm {
+        mov dx, port
+        // Encode: mov eax, value (opcode 0x66, 0xB8 + 4-byte immediate)
+        db 0x66, 0xB8
+        dw word ptr value      // Low 16 bits
+        dw word ptr value+2    // High 16 bits
+        // Encode: out dx, eax (opcode 0x66, 0xEF)
+        db 0x66, 0xEF
+    }
+}
+
+static unsigned long inpd(unsigned short port) {
+    unsigned long value;
+    _asm {
+        mov dx, port
+        // Encode: in eax, dx (opcode 0x66, 0xED)
+        db 0x66, 0xED
+        // Store result: mov word ptr value, ax gets low word
+        mov word ptr value, ax
+        // Shift eax right 16 bits to get high word into ax
+        db 0x66, 0xC1, 0xE8, 0x10  // shr eax, 16
+        mov word ptr value+2, ax
+    }
+    return value;
+}
+*/
 
 // PCI Configuration Space Access
 #define PCI_CONFIG_ADDRESS  0xCF8
@@ -69,76 +114,8 @@ typedef struct {
 
 // Global variables
 static int bridge_bus = -1, bridge_dev = -1, bridge_func = -1;
-static int detection_method_used = 0;  // 0=original, 1=bios, 2=safe, 3=debug
 
-// Function pointers for PCI access
-static unsigned long (*pci_read_func)(int, int, int, int) = pci_read_config_dword;
-static void (*pci_write_func)(int, int, int, int, unsigned long) = pci_write_config_dword;
-
-// Preset configurations for subtractive decode.
-CARD_CONFIG sub_presets[] = {
-    // Gravis UltraSound
-    {
-        "GUS", "Gravis UltraSound Audio Card",
-        {0xE4000220UL, 0xE3000330UL, 0xE2000388UL, 0, 0, 0},
-        {0, 0, 0, 0},
-        {0x80000001UL, 0, 0x80000005UL, 0}, 
-        0x8C000003UL, 
-        0x00000000UL
-    },
-    
-    // Floppy Drive Controller
-    {
-        "FDC", "Floppy Drive Controller",
-        {0xE20003F0UL, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0},
-        {0, 0x80000002UL, 0, 0}, 
-        0x8C000003UL,
-        0x00000000UL
-    },
-    
-    // Sound Blaster Compatible
-    {
-        "SB", "Sound Blaster Compatible",
-        {0xE4000220UL, 0xE2000388UL, 0, 0, 0, 0},
-        {0, 0, 0, 0},
-        {0x80000001UL, 0x80000005UL, 0, 0}, 
-        0x8C000003UL,
-        0x00000000UL
-    },
-    
-    // NE2000 Ethernet
-    {
-        "NE2000", "NE2000 Compatible Ethernet Adapter",
-        {0xE5000300UL, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0},
-        {0, 0, 0, 0},
-        0x8C000003UL,
-        0x00000000UL
-    },
-    
-    // SCSI Host Adapter
-    {
-        "SCSI", "SCSI Host Adapter",
-        {0xE4000330UL, 0xE4000140UL, 0, 0, 0, 0},
-        {0, 0, 0, 0},
-        {0, 0, 0x80000005UL, 0}, 
-        0x8C000003UL,
-        0x00000000UL
-    },
-    
-    // Multi-Serial Controller
-    {
-        "SERIAL", "Multi-Port Serial Controller",
-        {0xE20003F8UL, 0xE20002F8UL, 0xE20003E8UL, 0xE20002E8UL, 0, 0},
-        {0, 0, 0, 0},
-        {0, 0, 0, 0},
-        0x8C000001UL, 
-        0x00000000UL
-    }
-};
-
-// Preset configurations - Updated for Positive Decode
+// Preset configurations
 CARD_CONFIG presets[] = {
     // Gravis UltraSound
     {
@@ -146,17 +123,17 @@ CARD_CONFIG presets[] = {
         {0xE4000220UL, 0xE3000330UL, 0xE2000388UL, 0, 0, 0},
         {0, 0, 0, 0},
         {0x80000001UL, 0, 0x80000005UL, 0}, 
-        0x8C000002UL,  // Removed subtractive decode bit
+        0x8C000002UL,
         0x00000000UL
     },
     
     // Floppy Drive Controller  
     {
         "FDC", "Floppy Drive Controller",
-        {0xE30003F0UL, 0, 0, 0, 0, 0},  // Fixed: 8 bytes for FDC
+        {0xE30003F0UL, 0, 0, 0, 0, 0},
         {0, 0, 0, 0},
         {0, 0x80000002UL, 0, 0}, 
-        0x8C000002UL,  // Removed subtractive decode bit
+        0x8C000002UL,
         0x00000000UL
     },
     
@@ -166,17 +143,17 @@ CARD_CONFIG presets[] = {
         {0xE4000220UL, 0xE2000388UL, 0, 0, 0, 0},
         {0, 0, 0, 0},
         {0x80000001UL, 0x80000005UL, 0, 0}, 
-        0x8C000002UL,  // Removed subtractive decode bit
+        0x8C000002UL,
         0x00000000UL
     },
     
     // NE2000 Ethernet
     {
         "NE2000", "NE2000 Compatible Ethernet Adapter",
-        {0xE5000300UL, 0, 0, 0, 0, 0},  // 32 bytes for NE2000
+        {0xE5000300UL, 0, 0, 0, 0, 0},
         {0, 0, 0, 0},
         {0, 0, 0, 0},
-        0x8C000002UL,  // Removed subtractive decode bit
+        0x8C000002UL,
         0x00000000UL
     },
     
@@ -186,144 +163,37 @@ CARD_CONFIG presets[] = {
         {0xE4000330UL, 0xE4000140UL, 0, 0, 0, 0},
         {0, 0, 0, 0},
         {0, 0, 0x80000005UL, 0}, 
-        0x8C000002UL,  // Removed subtractive decode bit
+        0x8C000002UL,
         0x00000000UL
     },
     
     // Multi-Serial Controller
     {
         "SERIAL", "Multi-Port Serial Controller",
-        {0xE30003F8UL, 0xE30002F8UL, 0xE30003E8UL, 0xE30002E8UL, 0, 0},  // Fixed: 8 bytes each
+        {0xE30003F8UL, 0xE30002F8UL, 0xE30003E8UL, 0xE30002E8UL, 0, 0},
         {0, 0, 0, 0},
         {0, 0, 0, 0},
-        0x8C000000UL,  // Removed both subtractive and delayed transaction bits
+        0x8C000000UL,
         0x00000000UL
     }
 };
 
 #define NUM_PRESETS (sizeof(presets) / sizeof(presets[0]))
 
-// Function prototypes
-int test_pci_access_basic(void);
-int check_pci_bios(void);
-unsigned long pci_bios_read_config_dword(int bus, int dev, int func, int reg);
-unsigned long pci_read_config_dword_safe(int bus, int dev, int func, int reg);
-unsigned long pci_read_config_dword(int bus, int dev, int func, int reg);
-void pci_write_config_dword(int bus, int dev, int func, int reg, unsigned long val);
-void pci_write_config_dword_safe(int bus, int dev, int func, int reg, unsigned long val);
-int find_ite8888(void);
-int find_ite8888_bios(void);
-int find_ite8888_debug(unsigned long (*read_func)(int, int, int, int));
-int test_detection_method(const char *method_name, int (*detection_func)(void), int method_id);
-int detect_original(void);
-int detect_enhanced_original(void);
-int detect_safe_method(void);
-void set_pci_access_method(void);
-void show_main_menu(void);
-int interactive_mode(void);
-int load_preset(char *preset_name);
-int configure_bridge(CARD_CONFIG *config);
-int reset_bridge(void);
-int scan_bridge(void);
-int manual_config_mode(void);
-int save_config_file(char *filename, CARD_CONFIG *config);
-int load_config_file(char *filename, CARD_CONFIG *config);
-void show_usage(void);
-void decode_io_space(unsigned long reg_val, char *buffer);
-void decode_mem_space(unsigned long reg_val, char *buffer);
-void wait_key(void);
-char *trim(char *str);
-int parse_hex(char *str, unsigned long *value);
-
-// Test basic PCI configuration access
-int test_pci_access_basic(void) {
-    unsigned long id;
-    
-    printf("Testing basic PCI configuration access...\n");
-    
-    // Try to read Host Bridge at 0:0:0 (should always exist)
-    id = pci_read_config_dword(0, 0, 0, 0);
-    printf("  Host Bridge ID (0:0:0): 0x%08lX\n", id);
-    
-    if (id == 0xFFFFFFFFUL || id == 0x00000000UL) {
-        printf("  ERROR: PCI configuration access not working!\n");
-        return 0;
-    }
-    
-    printf("  PCI configuration access appears to work\n");
-    return 1;
-}
-
-// Check for PCI BIOS support
-int check_pci_bios(void) {
-    union REGS regs;
-    
-    printf("Checking for PCI BIOS support...\n");
-    
-    // INT 1A AH=B1h AL=01h - PCI BIOS Installation Check
-    regs.h.ah = 0xB1;
-    regs.h.al = 0x01;
-    int86(0x1A, &regs, &regs);
-    
-    if (regs.h.ah == 0x00 && regs.x.edx == 0x20494350) { // 'PCI '
-        printf("  PCI BIOS v%d.%d found\n", regs.h.bh, regs.h.bl);
-        printf("  Hardware mechanism: %02Xh\n", regs.h.al & 0x03);
-        return 1;
-    }
-    
-    printf("  No PCI BIOS support detected (AH=%02X, EDX=%08lX)\n", regs.h.ah, regs.x.edx);
-    return 0;
-}
-
-// DOS-safe 32-bit PCI config access using byte operations
-unsigned long pci_read_config_dword_safe(int bus, int dev, int func, int reg) {
-    unsigned long addr = 0x80000000UL | 
-                        ((unsigned long)bus << 16) | 
-                        ((unsigned long)dev << 11) | 
-                        ((unsigned long)func << 8) | 
-                        (reg & 0xFC);
-    
-    // Write address as separate bytes to avoid 32-bit issues
-    outp(PCI_CONFIG_ADDRESS + 0, addr & 0xFF);
-    outp(PCI_CONFIG_ADDRESS + 1, (addr >> 8) & 0xFF);
-    outp(PCI_CONFIG_ADDRESS + 2, (addr >> 16) & 0xFF);
-    outp(PCI_CONFIG_ADDRESS + 3, (addr >> 24) & 0xFF);
-    
-    // Read data as separate bytes
-    return (unsigned long)inp(PCI_CONFIG_DATA) |
-           ((unsigned long)inp(PCI_CONFIG_DATA + 1) << 8) |
-           ((unsigned long)inp(PCI_CONFIG_DATA + 2) << 16) |
-           ((unsigned long)inp(PCI_CONFIG_DATA + 3) << 24);
-}
-
-// PCI BIOS function approach
-unsigned long pci_bios_read_config_dword(int bus, int dev, int func, int reg) {
-    union REGS regs;
-    
-    regs.h.ah = 0xB1;        // PCI Function
-    regs.h.al = 0x0A;        // Read Configuration Dword
-    regs.h.bh = bus;
-    regs.h.bl = (dev << 3) | func;
-    regs.h.di = reg;
-    
-    int86(0x1A, &regs, &regs);
-    
-    if (regs.x.cflag == 0) {
-        return regs.x.ecx;
-    }
-    
-    return 0xFFFFFFFFUL;
-}
-
-// PCI configuration access functions
+// PCI configuration access functions using atomic 32-bit operations
 unsigned long pci_read_config_dword(int bus, int dev, int func, int reg) {
     unsigned long addr = 0x80000000UL | 
                         ((unsigned long)bus << 16) | 
                         ((unsigned long)dev << 11) | 
                         ((unsigned long)func << 8) | 
                         (reg & 0xFC);
+    unsigned long result;
+    
     outpd(PCI_CONFIG_ADDRESS, addr);
-    return inpd(PCI_CONFIG_DATA);
+    result = inpd(PCI_CONFIG_DATA);
+    outpd(PCI_CONFIG_ADDRESS, 0);  // Clear address register
+    
+    return result;
 }
 
 void pci_write_config_dword(int bus, int dev, int func, int reg, unsigned long val) {
@@ -332,28 +202,10 @@ void pci_write_config_dword(int bus, int dev, int func, int reg, unsigned long v
                         ((unsigned long)dev << 11) | 
                         ((unsigned long)func << 8) | 
                         (reg & 0xFC);
+    
     outpd(PCI_CONFIG_ADDRESS, addr);
     outpd(PCI_CONFIG_DATA, val);
-}
-
-void pci_write_config_dword_safe(int bus, int dev, int func, int reg, unsigned long val) {
-    unsigned long addr = 0x80000000UL | 
-                        ((unsigned long)bus << 16) | 
-                        ((unsigned long)dev << 11) | 
-                        ((unsigned long)func << 8) | 
-                        (reg & 0xFC);
-    
-    // Write address as separate bytes
-    outp(PCI_CONFIG_ADDRESS + 0, addr & 0xFF);
-    outp(PCI_CONFIG_ADDRESS + 1, (addr >> 8) & 0xFF);
-    outp(PCI_CONFIG_ADDRESS + 2, (addr >> 16) & 0xFF);
-    outp(PCI_CONFIG_ADDRESS + 3, (addr >> 24) & 0xFF);
-    
-    // Write data as separate bytes
-    outp(PCI_CONFIG_DATA + 0, val & 0xFF);
-    outp(PCI_CONFIG_DATA + 1, (val >> 8) & 0xFF);
-    outp(PCI_CONFIG_DATA + 2, (val >> 16) & 0xFF);
-    outp(PCI_CONFIG_DATA + 3, (val >> 24) & 0xFF);
+    outpd(PCI_CONFIG_ADDRESS, 0);  // Clear address register
 }
 
 // Find ITE8888 bridge
@@ -379,151 +231,15 @@ int find_ite8888(void) {
                 if (func == 0 && id == 0xFFFFFFFFUL) break;
             }
         }
+        
+        // Progress indicator
+        if ((bus & 0x3F) == 0 && bus > 0) {
+            printf("  Scanning bus %d...\n", bus);
+        }
     }
     
     printf("ERROR: ITE8888 bridge not found!\n");
     return 0;
-}
-
-// PCI BIOS-based device search
-int find_ite8888_bios(void) {
-    union REGS regs;
-    
-    printf("Searching for ITE8888 via PCI BIOS services...\n");
-    
-    // Find PCI device using INT 1A AH=B1h AL=02h
-    regs.h.ah = 0xB1;
-    regs.h.al = 0x02;        // Find PCI Device
-    regs.x.cx = ITE8888_DEVICE_ID;
-    regs.x.dx = ITE_VENDOR_ID;
-    regs.x.si = 0;           // Index (start with 0)
-    
-    int86(0x1A, &regs, &regs);
-    
-    if (regs.x.cflag == 0 && regs.h.ah == 0x00) {
-        bridge_bus = regs.h.bh;
-        bridge_dev = (regs.h.bl >> 3) & 0x1F;
-        bridge_func = regs.h.bl & 0x07;
-        printf("  Found ITE8888 via PCI BIOS at Bus %d, Device %d, Function %d\n", 
-               bridge_bus, bridge_dev, bridge_func);
-        return 1;
-    }
-    
-    printf("  ITE8888 not found via PCI BIOS (AH=%02X, CF=%d)\n", regs.h.ah, regs.x.cflag);
-    return 0;
-}
-
-// Enhanced scanning with detailed debug info
-int find_ite8888_debug(unsigned long (*read_func)(int, int, int, int)) {
-    int bus, dev, func;
-    unsigned long id, class_code, status;
-    int found_any_ite = 0;
-    
-    printf("Enhanced PCI scan for ITE8888...\n");
-    
-    for (bus = 0; bus < 256; bus++) {
-        for (dev = 0; dev < 32; dev++) {
-            for (func = 0; func < 8; func++) {
-                id = read_func(bus, dev, func, 0x00);
-                
-                if (id == 0xFFFFFFFFUL || id == 0x00000000UL) {
-                    if (func == 0) break; // No device at this slot
-                    continue;
-                }
-                
-                // Check for any ITE device
-                if ((id & 0xFFFF) == ITE_VENDOR_ID) {
-                    found_any_ite = 1;
-                    class_code = read_func(bus, dev, func, 0x08);
-                    status = read_func(bus, dev, func, 0x04);
-                    
-                    printf("  Found ITE device at Bus %d, Device %d, Function %d\n", bus, dev, func);
-                    printf("    Vendor:Device = %04lX:%04lX\n", id & 0xFFFF, id >> 16);
-                    printf("    Class Code = %08lX\n", class_code);
-                    printf("    Status/Command = %08lX\n", status);
-                    
-                    if ((id >> 16) == ITE8888_DEVICE_ID) {
-                        printf("    *** THIS IS ITE8888 ***\n");
-                        
-                        // Check for SMB configuration in progress
-                        unsigned long misc_ctrl = read_func(bus, dev, func, 0x50);
-                        if (misc_ctrl & 0x10) {
-                            printf("    WARNING: SMB configuration in progress (Cfg_50h bit 4 set)\n");
-                            printf("    This may indicate TC pin strapping issue\n");
-                        }
-                        
-                        bridge_bus = bus; 
-                        bridge_dev = dev; 
-                        bridge_func = func;
-                        return 1;
-                    }
-                }
-                
-                if (func == 0 && id == 0xFFFFFFFFUL) break;
-            }
-        }
-        
-        // Progress indicator for slow systems
-        if ((bus & 0x3F) == 0) {
-            printf("  Scanned bus %d...\n", bus);
-        }
-    }
-    
-    if (found_any_ite) {
-        printf("  Found ITE devices but no ITE8888\n");
-    } else {
-        printf("  No ITE devices found at all\n");
-    }
-    
-    return 0;
-}
-
-// Test a specific detection method
-int test_detection_method(const char *method_name, int (*detection_func)(void), int method_id) {
-    printf("\n=== Testing %s ===\n", method_name);
-    
-    bridge_bus = bridge_dev = bridge_func = -1;
-    
-    if (detection_func()) {
-        printf("SUCCESS: ITE8888 found using %s\n", method_name);
-        detection_method_used = method_id;
-        return 1;
-    } else {
-        printf("FAILED: ITE8888 not found using %s\n", method_name);
-        return 0;
-    }
-}
-
-// Wrapper functions for different detection methods
-int detect_original(void) {
-    return find_ite8888();
-}
-
-int detect_enhanced_original(void) {
-    return find_ite8888_debug(pci_read_config_dword);
-}
-
-int detect_safe_method(void) {
-    return find_ite8888_debug(pci_read_config_dword_safe);
-}
-
-// Set PCI access method based on detection results
-void set_pci_access_method(void) {
-    switch (detection_method_used) {
-        case 2: // Safe method was used
-            pci_read_func = pci_read_config_dword_safe;
-            pci_write_func = pci_write_config_dword_safe;
-            printf("Note: Using DOS-safe register access methods\n");
-            break;
-        
-        case 1: // PCI BIOS was used - stick with direct access since it worked
-        case 3: // Debug/enhanced method
-        case 0: // Original method
-        default:
-            pci_read_func = pci_read_config_dword;
-            pci_write_func = pci_write_config_dword;
-            break;
-    }
 }
 
 // Configure bridge with given configuration
@@ -533,52 +249,59 @@ int configure_bridge(CARD_CONFIG *config) {
     unsigned long io_regs[6] = {IO_SPACE_0, IO_SPACE_1, IO_SPACE_2, IO_SPACE_3, IO_SPACE_4, IO_SPACE_5};
     unsigned long mem_regs[4] = {MEM_SPACE_0, MEM_SPACE_1, MEM_SPACE_2, MEM_SPACE_3};
     unsigned long dma_regs[4] = {DMA_CHANNEL_01, DMA_CHANNEL_23, DMA_CHANNEL_5, DMA_CHANNEL_67};
+    char decode_buf[80];
     
     if (bridge_bus < 0) {
         printf("ERROR: Bridge not found!\n");
         return 0;
     }
     
-    printf("Configuring ITE8888 for: %s\n", config->description);
+    printf("\nConfiguring ITE8888 for: %s\n", config->description);
     
     // Enable I/O space, memory space, and bus mastering
-    cmd_reg = pci_read_func(bridge_bus, bridge_dev, bridge_func, CMD_REG);
+    cmd_reg = pci_read_config_dword(bridge_bus, bridge_dev, bridge_func, CMD_REG);
     cmd_reg |= 0x07; 
-    pci_write_func(bridge_bus, bridge_dev, bridge_func, CMD_REG, cmd_reg);
+    pci_write_config_dword(bridge_bus, bridge_dev, bridge_func, CMD_REG, cmd_reg);
+    printf("  PCI Command: 0x%04lX\n", cmd_reg & 0xFFFF);
     
     // Configure miscellaneous control register
-    pci_write_func(bridge_bus, bridge_dev, bridge_func, MISC_CONTROL, config->misc_control);
+    pci_write_config_dword(bridge_bus, bridge_dev, bridge_func, MISC_CONTROL, config->misc_control);
+    printf("  Misc Control: 0x%08lX\n", config->misc_control);
     
     // Configure ISA control register if needed
     if (config->isa_control) {
-        pci_write_func(bridge_bus, bridge_dev, bridge_func, ISA_CONTROL, config->isa_control);
+        pci_write_config_dword(bridge_bus, bridge_dev, bridge_func, ISA_CONTROL, config->isa_control);
+        printf("  ISA Control: 0x%08lX\n", config->isa_control);
     }
     
     // Configure I/O spaces
     for (i = 0; i < 6; i++) {
-        pci_write_func(bridge_bus, bridge_dev, bridge_func, io_regs[i], config->io_spaces[i]);
+        pci_write_config_dword(bridge_bus, bridge_dev, bridge_func, io_regs[i], config->io_spaces[i]);
         if (config->io_spaces[i] & 0x80000000UL) {
-            char decode_buf[80];
-            decode_io_space(config->io_spaces[i], decode_buf);
-            printf("  I/O Space %d: %s\n", i, decode_buf);
+            unsigned long base = config->io_spaces[i] & 0xFFFF;
+            unsigned long size = (config->io_spaces[i] >> 24) & 0x07;
+            unsigned long bytes = 1UL << size;
+            printf("  I/O Space %d: 0x%04lX-0x%04lX (%lu bytes)\n", 
+                   i, base, base + bytes - 1, bytes);
         }
     }
     
     // Configure memory spaces
     for (i = 0; i < 4; i++) {
-        pci_write_func(bridge_bus, bridge_dev, bridge_func, mem_regs[i], config->mem_spaces[i]);
+        pci_write_config_dword(bridge_bus, bridge_dev, bridge_func, mem_regs[i], config->mem_spaces[i]);
         if (config->mem_spaces[i] & 0x80000000UL) {
-            char decode_buf[80];
-            decode_mem_space(config->mem_spaces[i], decode_buf);
-            printf("  Memory Space %d: %s\n", i, decode_buf);
+            unsigned long base = (config->mem_spaces[i] & 0xFFFFFF) << 8;
+            unsigned long size = (config->mem_spaces[i] >> 24) & 0x07;
+            unsigned long kb = 16UL << size;
+            printf("  Memory Space %d: 0x%08lX (%luKB)\n", i, base, kb);
         }
     }
     
     // Configure DMA channels
     for (i = 0; i < 4; i++) {
         if (config->dma_config[i]) {
-            pci_write_func(bridge_bus, bridge_dev, bridge_func, dma_regs[i], config->dma_config[i]);
-            printf("  DMA Channel %d: Enabled (0x%08lX)\n", i, config->dma_config[i]);
+            pci_write_config_dword(bridge_bus, bridge_dev, bridge_func, dma_regs[i], config->dma_config[i]);
+            printf("  DMA Channel: Enabled (0x%08lX)\n", config->dma_config[i]);
         }
     }
     
@@ -600,14 +323,12 @@ int reset_bridge(void) {
     
     printf("Resetting ITE8888 bridge to defaults...\n");
     
-    // Clear all configuration registers
     for (i = 0; i < 14; i++) {
-        pci_write_func(bridge_bus, bridge_dev, bridge_func, regs[i], 0);
+        pci_write_config_dword(bridge_bus, bridge_dev, bridge_func, regs[i], 0);
     }
     
-    // Reset control registers
-    pci_write_func(bridge_bus, bridge_dev, bridge_func, MISC_CONTROL, 0);
-    pci_write_func(bridge_bus, bridge_dev, bridge_func, ISA_CONTROL, 0);
+    pci_write_config_dword(bridge_bus, bridge_dev, bridge_func, MISC_CONTROL, 0);
+    pci_write_config_dword(bridge_bus, bridge_dev, bridge_func, ISA_CONTROL, 0);
     
     printf("Bridge reset completed!\n");
     return 1;
@@ -617,7 +338,6 @@ int reset_bridge(void) {
 int scan_bridge(void) {
     int i;
     unsigned long value;
-    char decode_buf[80];
     unsigned long io_regs[6] = {IO_SPACE_0, IO_SPACE_1, IO_SPACE_2, IO_SPACE_3, IO_SPACE_4, IO_SPACE_5};
     unsigned long mem_regs[4] = {MEM_SPACE_0, MEM_SPACE_1, MEM_SPACE_2, MEM_SPACE_3};
     
@@ -628,148 +348,51 @@ int scan_bridge(void) {
     
     printf("\nCurrent ITE8888 Configuration:\n");
     printf("==============================\n");
+    printf("Location: Bus %d, Device %d, Function %d\n", bridge_bus, bridge_dev, bridge_func);
     
-    // Show command register
-    value = pci_read_func(bridge_bus, bridge_dev, bridge_func, CMD_REG);
-    printf("Command Register: 0x%04lX", value & 0xFFFF);
-    if (value & 0x01) printf(" [I/O Enabled]");
-    if (value & 0x02) printf(" [Memory Enabled]");
-    if (value & 0x04) printf(" [Bus Master]");
+    value = pci_read_config_dword(bridge_bus, bridge_dev, bridge_func, 0);
+    printf("Device/Vendor ID: %04lX:%04lX\n", (value >> 16) & 0xFFFF, value & 0xFFFF);
+    
+    value = pci_read_config_dword(bridge_bus, bridge_dev, bridge_func, CMD_REG);
+    printf("Command: 0x%04lX", value & 0xFFFF);
+    if (value & 0x01) printf(" [I/O]");
+    if (value & 0x02) printf(" [Mem]");
+    if (value & 0x04) printf(" [Master]");
     printf("\n");
     
-    // Show control registers
-    value = pci_read_func(bridge_bus, bridge_dev, bridge_func, MISC_CONTROL);
+    value = pci_read_config_dword(bridge_bus, bridge_dev, bridge_func, MISC_CONTROL);
     printf("Misc Control: 0x%08lX", value);
     if (value & 0x80000000UL) printf(" [DDMA-Concurrent]");
-    if (value & 0x08000000UL) printf(" [PCI-Clock]");
+    if (value & 0x08000000UL) printf(" [PCI-Clk]");
     if (value & 0x04000000UL) printf(" [ISA-Refresh]");
     if (value & 0x00000001UL) printf(" [Subtractive]");
     if (value & 0x00000002UL) printf(" [Delayed-Tx]");
     printf("\n");
     
-    // Show I/O spaces
     printf("\nI/O Spaces:\n");
     for (i = 0; i < 6; i++) {
-        value = pci_read_func(bridge_bus, bridge_dev, bridge_func, io_regs[i]);
+        value = pci_read_config_dword(bridge_bus, bridge_dev, bridge_func, io_regs[i]);
         if (value & 0x80000000UL) {
-            decode_io_space(value, decode_buf);
-            printf("  Space %d: %s\n", i, decode_buf);
+            unsigned long base = value & 0xFFFF;
+            unsigned long size = (value >> 24) & 0x07;
+            unsigned long bytes = 1UL << size;
+            printf("  Space %d: 0x%04lX-0x%04lX (%lu bytes)\n", 
+                   i, base, base + bytes - 1, bytes);
         }
     }
     
-    // Show memory spaces
     printf("\nMemory Spaces:\n");
     for (i = 0; i < 4; i++) {
-        value = pci_read_func(bridge_bus, bridge_dev, bridge_func, mem_regs[i]);
+        value = pci_read_config_dword(bridge_bus, bridge_dev, bridge_func, mem_regs[i]);
         if (value & 0x80000000UL) {
-            decode_mem_space(value, decode_buf);
-            printf("  Space %d: %s\n", i, decode_buf);
+            unsigned long base = (value & 0xFFFFFF) << 8;
+            unsigned long size = (value >> 24) & 0x07;
+            unsigned long kb = 16UL << size;
+            printf("  Space %d: 0x%08lX (%luKB)\n", i, base, kb);
         }
     }
     
     printf("\n");
-    return 1;
-}
-
-// Manual configuration mode
-int manual_config_mode(void) {
-    CARD_CONFIG config;
-    int i, choice;
-    unsigned long base, size, speed;
-    char buffer[80];
-    
-    memset(&config, 0, sizeof(config));
-    
-    printf("\nManual Configuration Mode\n");
-    printf("=========================\n");
-    
-    strcpy(config.name, "MANUAL");
-    printf("Enter card description: ");
-    fgets(config.description, sizeof(config.description), stdin);
-    trim(config.description);
-    
-    // Configure I/O spaces
-    printf("\nConfigure I/O Spaces (6 available):\n");
-    for (i = 0; i < 6; i++) {
-        printf("I/O Space %d - Enable? (y/n): ", i);
-        if (getch() == 'y') {
-            printf("y\n");
-            printf("  Base address (hex, no 0x): ");
-            fgets(buffer, sizeof(buffer), stdin);
-            if (parse_hex(trim(buffer), &base)) {
-                printf("  Size (0=1B, 1=2B, 2=4B, 3=8B, 4=16B, 5=32B, 6=64B, 7=128B): ");
-                scanf("%lu", &size);
-                printf("  Speed (0=Subtractive, 1=Slow, 2=Medium, 3=Fast): ");
-                scanf("%lu", &speed);
-                
-                config.io_spaces[i] = 0x80000000UL | (speed << 29) | (size << 24) | (base & 0xFFFF);
-                printf("  Configured: 0x%04lX-0x%04lX\n", base, base + (1UL << size) - 1);
-            }
-        } else {
-            printf("n\n");
-        }
-    }
-    
-    // Configure DMA
-    printf("\nConfigure DMA channels:\n");
-    printf("8-bit DMA channel (0-3, 255=none): ");
-    scanf("%d", &choice);
-    if (choice >= 0 && choice <= 3) {
-        config.dma_config[0] = 0x80000000UL | choice;
-    }
-    
-    printf("16-bit DMA channel (5-7, 255=none): ");
-    scanf("%d", &choice);
-    if (choice >= 5 && choice <= 7) {
-        config.dma_config[2] = 0x80000000UL | choice;
-    }
-    
-    // Configure control options
-    config.misc_control = 0x8C000000UL;
-    printf("\nEnable subtractive decode? (y/n): ");
-    if (getch() == 'y') {
-        printf("y\n");
-        config.misc_control |= 0x01;
-    } else {
-        printf("n\n");
-    }
-    
-    printf("Enable delayed transaction? (y/n): ");
-    if (getch() == 'y') {
-        printf("y\n");
-        config.misc_control |= 0x02;
-    } else {
-        printf("n\n");
-    }
-    
-    printf("\nConfiguration Summary:\n");
-    printf("Name: %s\n", config.description);
-    for (i = 0; i < 6; i++) {
-        if (config.io_spaces[i] & 0x80000000UL) {
-            char decode_buf[80];
-            decode_io_space(config.io_spaces[i], decode_buf);
-            printf("I/O %d: %s\n", i, decode_buf);
-        }
-    }
-    
-    printf("\nApply configuration? (y/n): ");
-    if (getch() == 'y') {
-        printf("y\n");
-        configure_bridge(&config);
-        
-        printf("Save configuration to file? (y/n): ");
-        if (getch() == 'y') {
-            printf("y\n");
-            printf("Filename: ");
-            fgets(buffer, sizeof(buffer), stdin);
-            save_config_file(trim(buffer), &config);
-        } else {
-            printf("n\n");
-        }
-    } else {
-        printf("n\n");
-    }
-    
     return 1;
 }
 
@@ -784,244 +407,17 @@ int load_preset(char *preset_name) {
     }
     
     printf("ERROR: Preset '%s' not found!\n", preset_name);
-    printf("Available presets: ");
-    for (i = 0; i < NUM_PRESETS; i++) {
-        printf("%s", presets[i].name);
-        if (i < NUM_PRESETS - 1) printf(", ");
-    }
-    printf("\n");
     return 0;
-}
-
-// Show main menu
-void show_main_menu(void) {
-    int i;
-    
-    printf("\nITE8888 Universal Configuration Utility\n");
-    printf("========================================\n");
-    printf("Preset Configurations:\n");
-    for (i = 0; i < NUM_PRESETS; i++) {
-        printf("  %d. %-8s - %s\n", i + 1, presets[i].name, presets[i].description);
-    }
-    printf("\nOther Options:\n");
-    printf("  M. Manual configuration\n");
-    printf("  L. Load configuration file\n");
-    printf("  S. Scan current configuration\n");
-    printf("  R. Reset bridge (disable all)\n");
-    printf("  Q. Quit\n");
-    printf("\nChoice: ");
-}
-
-// Interactive mode
-int interactive_mode(void) {
-    char choice;
-    char filename[80];
-    CARD_CONFIG config;
-    
-    while (1) {
-        show_main_menu();
-        choice = getch();
-        printf("%c\n", choice);
-        
-        if (choice >= '1' && choice <= '0' + NUM_PRESETS) {
-            configure_bridge(&presets[choice - '1']);
-            wait_key();
-        }
-        else if (toupper(choice) == 'M') {
-            manual_config_mode();
-            wait_key();
-        }
-        else if (toupper(choice) == 'L') {
-            printf("Configuration filename: ");
-            fgets(filename, sizeof(filename), stdin);
-            if (load_config_file(trim(filename), &config)) {
-                configure_bridge(&config);
-            }
-            wait_key();
-        }
-        else if (toupper(choice) == 'S') {
-            scan_bridge();
-            wait_key();
-        }
-        else if (toupper(choice) == 'R') {
-            reset_bridge();
-            wait_key();
-        }
-        else if (toupper(choice) == 'Q') {
-            break;
-        }
-        else {
-            printf("Invalid choice!\n");
-        }
-    }
-    
-    return 1;
-}
-
-// Configuration file functions
-int save_config_file(char *filename, CARD_CONFIG *config) {
-    FILE *f;
-    int i;
-    
-    f = fopen(filename, "w");
-    if (!f) {
-        printf("ERROR: Cannot create file '%s'\n", filename);
-        return 0;
-    }
-    
-    fprintf(f, "; ITE8888 Configuration File\n");
-    fprintf(f, "[INFO]\n");
-    fprintf(f, "NAME=%s\n", config->name);
-    fprintf(f, "DESCRIPTION=%s\n", config->description);
-    fprintf(f, "\n[IO_SPACES]\n");
-    
-    for (i = 0; i < 6; i++) {
-        fprintf(f, "IO%d=0x%08lX\n", i, config->io_spaces[i]);
-    }
-    
-    fprintf(f, "\n[MEMORY_SPACES]\n");
-    for (i = 0; i < 4; i++) {
-        fprintf(f, "MEM%d=0x%08lX\n", i, config->mem_spaces[i]);
-    }
-    
-    fprintf(f, "\n[DMA]\n");
-    for (i = 0; i < 4; i++) {
-        fprintf(f, "DMA%d=0x%08lX\n", i, config->dma_config[i]);
-    }
-    
-    fprintf(f, "\n[CONTROL]\n");
-    fprintf(f, "MISC_CONTROL=0x%08lX\n", config->misc_control);
-    fprintf(f, "ISA_CONTROL=0x%08lX\n", config->isa_control);
-    
-    fclose(f);
-    printf("Configuration saved to '%s'\n", filename);
-    return 1;
-}
-
-int load_config_file(char *filename, CARD_CONFIG *config) {
-    FILE *f;
-    char line[256];
-    char *key, *value;
-    
-    memset(config, 0, sizeof(CARD_CONFIG));
-    
-    f = fopen(filename, "r");
-    if (!f) {
-        printf("ERROR: Cannot open file '%s'\n", filename);
-        return 0;
-    }
-    
-    while (fgets(line, sizeof(line), f)) {
-        trim(line);
-        if (line[0] == ';' || line[0] == '[' || line[0] == 0) continue;
-        
-        key = strtok(line, "=");
-        value = strtok(NULL, "=");
-        if (!key || !value) continue;
-        
-        key = trim(key);
-        value = trim(value);
-        
-        if (strcmp(key, "NAME") == 0) {
-            strcpy(config->name, value);
-        }
-        else if (strcmp(key, "DESCRIPTION") == 0) {
-            strcpy(config->description, value);
-        }
-        else if (strncmp(key, "IO", 2) == 0 && strlen(key) == 3) {
-            int idx = key[2] - '0';
-            if (idx >= 0 && idx < 6) {
-                parse_hex(value, &config->io_spaces[idx]);
-            }
-        }
-        else if (strncmp(key, "MEM", 3) == 0 && strlen(key) == 4) {
-            int idx = key[3] - '0';
-            if (idx >= 0 && idx < 4) {
-                parse_hex(value, &config->mem_spaces[idx]);
-            }
-        }
-        else if (strncmp(key, "DMA", 3) == 0 && strlen(key) == 4) {
-            int idx = key[3] - '0';
-            if (idx >= 0 && idx < 4) {
-                parse_hex(value, &config->dma_config[idx]);
-            }
-        }
-        else if (strcmp(key, "MISC_CONTROL") == 0) {
-            parse_hex(value, &config->misc_control);
-        }
-        else if (strcmp(key, "ISA_CONTROL") == 0) {
-            parse_hex(value, &config->isa_control);
-        }
-    }
-    
-    fclose(f);
-    printf("Configuration loaded from '%s'\n", filename);
-    return 1;
-}
-
-// Utility functions
-void decode_io_space(unsigned long reg_val, char *buffer) {
-    unsigned long base = reg_val & 0xFFFF;
-    unsigned long size = (reg_val >> 24) & 0x07;
-    unsigned long speed = (reg_val >> 29) & 0x03;
-    unsigned long bytes = 1UL << size;
-    char *speed_names[] = {"Sub", "Slow", "Med", "Fast"};
-    
-    sprintf(buffer, "0x%04lX-0x%04lX (%lu bytes, %s)", 
-            base, base + bytes - 1, bytes, speed_names[speed]);
-}
-
-void decode_mem_space(unsigned long reg_val, char *buffer) {
-    unsigned long base = (reg_val & 0xFFFFFF) << 8;
-    unsigned long size = (reg_val >> 24) & 0x07;
-    unsigned long speed = (reg_val >> 29) & 0x03;
-    unsigned long kb = 16UL << size;
-    char *speed_names[] = {"Sub", "Slow", "Med", "Fast"};
-    
-    sprintf(buffer, "0x%08lX (%luKB, %s)", base, kb, speed_names[speed]);
-}
-
-char *trim(char *str) {
-    char *end;
-    
-    while (isspace(*str)) str++;
-    if (*str == 0) return str;
-    
-    end = str + strlen(str) - 1;
-    while (end > str && isspace(*end)) end--;
-    *(end + 1) = 0;
-    
-    return str;
-}
-
-int parse_hex(char *str, unsigned long *value) {
-    char *endptr;
-    
-    if (strncmp(str, "0x", 2) == 0 || strncmp(str, "0X", 2) == 0) {
-        str += 2;
-    }
-    
-    *value = strtoul(str, &endptr, 16);
-    return (*endptr == 0);
-}
-
-void wait_key(void) {
-    printf("\nPress any key to continue...");
-    getch();
-    printf("\n");
 }
 
 void show_usage(void) {
     int i;
     
-    printf("ITE8888 Universal Configuration Utility v1.1\n");
+    printf("\nITE8888 Configuration Utility v1.1\n");
     printf("Usage:\n");
-    printf("  ITE8888CFG                    - Interactive mode\n");
-    printf("  ITE8888CFG -preset <name>     - Load preset (GUS, FDC, SB, etc.)\n");
-    printf("  ITE8888CFG -load <file.cfg>   - Load configuration file\n");
-    printf("  ITE8888CFG -reset             - Reset bridge to defaults\n");
-    printf("  ITE8888CFG -scan              - Scan and display current config\n");
-    printf("  ITE8888CFG -help              - Show this help\n");
+    printf("  ITE8888CFG -preset <name>   Load preset configuration\n");
+    printf("  ITE8888CFG -reset           Reset bridge to defaults\n");
+    printf("  ITE8888CFG -scan            Display current configuration\n");
     printf("\nAvailable presets: ");
     for (i = 0; i < NUM_PRESETS; i++) {
         printf("%s", presets[i].name);
@@ -1030,122 +426,52 @@ void show_usage(void) {
     printf("\n");
 }
 
-// Main function with comprehensive testing
 int main(int argc, char *argv[]) {
-    int detection_success = 0;
-    int pci_bios_available = 0;
+    unsigned long host_id;
     
-    printf("ITE8888 Universal ISA Bridge Configuration Utility v1.1\n");
-    printf("=========================================================\n\n");
+    printf("ITE8888 Configuration Utility v1.1\n");
+    printf("==================================\n\n");
     
-    // Step 1: Check for PCI BIOS support
-    pci_bios_available = check_pci_bios();
-    printf("\n");
+    // Test PCI access with host bridge
+    printf("Testing PCI configuration access...\n");
+    host_id = pci_read_config_dword(0, 0, 0, 0);
+    printf("  Host Bridge ID: 0x%08lX\n", host_id);
     
-    // Step 2: Test basic PCI access
-    if (!test_pci_access_basic()) {
-        printf("\nFATAL ERROR: Cannot access PCI configuration space at all!\n");
-        printf("This system may not support PCI or lacks proper PCI BIOS.\n");
-        if (!pci_bios_available) {
-            printf("Recommendation: Boot from a DOS with PCI support or try a PCI support driver.\n");
-        }
+    if (host_id == 0xFFFFFFFFUL || host_id == 0x00000000UL) {
+        printf("ERROR: Cannot access PCI configuration space!\n");
         return 1;
     }
-    printf("\n");
+    printf("  PCI access OK\n\n");
     
-    // Step 3: Try PCI BIOS method first (most compatible)
-    if (pci_bios_available) {
-        if (test_detection_method("PCI BIOS INT 1A Services", find_ite8888_bios, 1)) {
-            detection_success = 1;
-        }
-    }
-    
-    // Step 4: Try DOS-safe byte-by-byte method
-    if (!detection_success) {
-        if (test_detection_method("DOS-Safe Byte Access Method", detect_safe_method, 2)) {
-            detection_success = 1;
-        }
-    }
-    
-    // Step 5: Try enhanced version of original method
-    if (!detection_success) {
-        if (test_detection_method("Enhanced Original Method", detect_enhanced_original, 3)) {
-            detection_success = 1;
-        }
-    }
-    
-    // Step 6: Try original method as last resort
-    if (!detection_success) {
-        if (test_detection_method("Original Direct Method", detect_original, 0)) {
-            detection_success = 1;
-        }
-    }
-    
-    // Final result
-    printf("\n==================================================\n");
-    if (!detection_success) {
-        printf("DETECTION FAILED: ITE8888 bridge not found with any method!\n\n");
-        
+    // Find ITE8888
+    if (!find_ite8888()) {
+        printf("\nITE8888 bridge not found!\n");
         printf("Possible causes:\n");
-        printf("1. ITE8888 not installed or not powered properly\n");
-        printf("2. Hardware strapping pins (TC, AEN, BALE) incorrectly configured\n");
-        printf("3. SMB boot configuration hanging (check TC pin - should be pulled down)\n");
-        printf("4. DOS PCI BIOS limitations\n");
-        printf("5. NOGO pin asserted (should be pulled high or floating)\n");
-        
-        if (!pci_bios_available) {
-            printf("\nNOTE: No PCI BIOS detected. Try booting with:\n");
-            printf("- A DOS version with PCI support\n");
-            printf("- UMBPCI.SYS or similar PCI driver\n");
-            printf("- FreeDOS with PCI support\n");
-        }
-        
-        printf("\nIf Windows XP/10 can detect the bridge device, the hardware is likely OK.\n");
-        printf("This is likely a DOS/BIOS compatibility issue.\n");
-        
+        printf("  - Card not installed properly\n");
+        printf("  - Hardware configuration issue\n");
+        printf("  - Incompatible system\n");
         return 1;
     }
     
-    printf("DETECTION SUCCESS: ITE8888 found and ready for configuration!\n");
-    printf("Bridge location: Bus %d, Device %d, Function %d\n", 
-           bridge_bus, bridge_dev, bridge_func);
-    
-    // Set up function pointers based on detection method
-    set_pci_access_method();
-    
     printf("\n");
     
-    // Process command line arguments if detection was successful
-    if (argc == 1) {
-        return interactive_mode();
-    }
-    else if (argc >= 2) {
-        if (strcmp(argv[1], "-preset") == 0 && argc >= 3) {
-            return load_preset(argv[2]) ? 0 : 1;
-        }
-        else if (strcmp(argv[1], "-load") == 0 && argc >= 3) {
-            CARD_CONFIG config;
-            if (load_config_file(argv[2], &config)) {
-                return configure_bridge(&config) ? 0 : 1;
-            }
-            return 1;
-        }
-        else if (strcmp(argv[1], "-reset") == 0) {
-            return reset_bridge() ? 0 : 1;
-        }
-        else if (strcmp(argv[1], "-scan") == 0) {
-            return scan_bridge() ? 0 : 1;
-        }
-        else if (strcmp(argv[1], "-help") == 0 || strcmp(argv[1], "/?") == 0) {
-            show_usage();
-            return 0;
-        }
-        else {
-            printf("Invalid option: %s\n", argv[1]);
-            show_usage();
-            return 1;
-        }
+    // Process command line
+    if (argc < 2) {
+        show_usage();
+        return 0;
     }
     
-    return 0;
+    if (strcmp(argv[1], "-preset") == 0 && argc >= 3) {
+        return load_preset(argv[2]) ? 0 : 1;
+    }
+    else if (strcmp(argv[1], "-reset") == 0) {
+        return reset_bridge() ? 0 : 1;
+    }
+    else if (strcmp(argv[1], "-scan") == 0) {
+        return scan_bridge() ? 0 : 1;
+    }
+    else {
+        show_usage();
+        return 1;
+    }
 }
