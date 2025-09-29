@@ -44,6 +44,36 @@ static unsigned long inpd(unsigned short port) {
     return value;
 }
 
+// raw opcodes with db
+/*
+static void outpd(unsigned short port, unsigned long value) {
+    _asm {
+        mov dx, port
+        // Encode: mov eax, value (opcode 0x66, 0xB8 + 4-byte immediate)
+        db 0x66, 0xB8
+        dw word ptr value      // Low 16 bits
+        dw word ptr value+2    // High 16 bits
+        // Encode: out dx, eax (opcode 0x66, 0xEF)
+        db 0x66, 0xEF
+    }
+}
+
+static unsigned long inpd(unsigned short port) {
+    unsigned long value;
+    _asm {
+        mov dx, port
+        // Encode: in eax, dx (opcode 0x66, 0xED)
+        db 0x66, 0xED
+        // Store result: mov word ptr value, ax gets low word
+        mov word ptr value, ax
+        // Shift eax right 16 bits to get high word into ax
+        db 0x66, 0xC1, 0xE8, 0x10  // shr eax, 16
+        mov word ptr value+2, ax
+    }
+    return value;
+}
+*/
+
 // PCI Configuration Space Access
 #define PCI_CONFIG_ADDRESS  0xCF8
 #define PCI_CONFIG_DATA     0xCFC
@@ -175,6 +205,7 @@ unsigned long pci_read_config_dword(int bus, int dev, int func, int reg) {
     outpd(PCI_CONFIG_ADDRESS, addr);
     result = inpd(PCI_CONFIG_DATA);
     outpd(PCI_CONFIG_ADDRESS, 0);
+    outpd(PCI_CONFIG_ADDRESS, 0);  // Clear address register
     
     return result;
 }
@@ -189,6 +220,7 @@ void pci_write_config_dword(int bus, int dev, int func, int reg, unsigned long v
     outpd(PCI_CONFIG_ADDRESS, addr);
     outpd(PCI_CONFIG_DATA, val);
     outpd(PCI_CONFIG_ADDRESS, 0);
+    outpd(PCI_CONFIG_ADDRESS, 0);  // Clear address register
 }
 
 // Find ITE8888 bridge
@@ -215,6 +247,7 @@ int find_ite8888(void) {
             }
         }
         
+        // Progress indicator
         if ((bus & 0x3F) == 0 && bus > 0) {
             printf("  Scanning bus %d...\n", bus);
         }
@@ -231,6 +264,7 @@ int configure_bridge(CARD_CONFIG *config) {
     unsigned long io_regs[6] = {IO_SPACE_0, IO_SPACE_1, IO_SPACE_2, IO_SPACE_3, IO_SPACE_4, IO_SPACE_5};
     unsigned long mem_regs[4] = {MEM_SPACE_0, MEM_SPACE_1, MEM_SPACE_2, MEM_SPACE_3};
     unsigned long dma_regs[4] = {DMA_CHANNEL_01, DMA_CHANNEL_23, DMA_CHANNEL_5, DMA_CHANNEL_67};
+    char decode_buf[80];
     
     if (bridge_bus < 0) {
         printf("ERROR: Bridge not found!\n");
