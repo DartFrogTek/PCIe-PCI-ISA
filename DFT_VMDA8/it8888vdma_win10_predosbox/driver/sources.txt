@@ -1,0 +1,9 @@
+driver.c
+device.c
+queue.c
+it8888_pci.c
+it8888_io.c
+it8888_dma.c
+vdma8237.c
+ddma.c
+trace.c

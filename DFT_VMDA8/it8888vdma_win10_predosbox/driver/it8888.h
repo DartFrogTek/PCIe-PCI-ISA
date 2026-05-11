@@ -1,0 +1,159 @@
+#pragma once
+#include <ntddk.h>
+#include <wdmguid.h>
+#include <wdf.h>
+#include "public.h"
+
+#define IT8888_POOL_TAG '8tII'
+#define IT8888_CFG_CH01 0x40
+#define IT8888_CFG_CH23 0x44
+#define IT8888_CFG_CH45 0x48
+#define IT8888_CFG_CH67 0x4C
+#define IT8888_CFG_50   0x50
+#define IT8888_CFG_54   0x54
+
+#define PCI_COMMAND_IO_SPACE     0x0001
+#define PCI_COMMAND_MEMORY_SPACE 0x0002
+#define PCI_COMMAND_BUS_MASTER   0x0004
+
+#define DMA_MODE_CHANNEL_MASK  0x03
+#define DMA_MODE_TRANSFER_MASK 0x0C
+#define DMA_MODE_AUTO_INIT     0x10
+#define DMA_MODE_ADDRESS_DEC   0x20
+#define DMA_MODE_TYPE_MASK     0xC0
+#define DMA_TRANSFER_VERIFY    0x00
+#define DMA_TRANSFER_WRITE     0x04
+#define DMA_TRANSFER_READ      0x08
+
+#define IT8888_DDMA_REG_ADDR0      0x0
+#define IT8888_DDMA_REG_ADDR1      0x1
+#define IT8888_DDMA_REG_ADDR2      0x2
+#define IT8888_DDMA_REG_ADDR3      0x3
+#define IT8888_DDMA_REG_COUNT0     0x4
+#define IT8888_DDMA_REG_COUNT1     0x5
+#define IT8888_DDMA_REG_COMMAND    0x8
+#define IT8888_DDMA_REG_REQUEST    0x9
+#define IT8888_DDMA_REG_MODE       0xB
+#define IT8888_DDMA_REG_MASTERCLR  0xD
+#define IT8888_DDMA_REG_MASK       0xF
+
+typedef struct _VDMA8237_CHANNEL {
+    USHORT BaseAddr;
+    USHORT CurAddr;
+    USHORT BaseCount;
+    USHORT CurCount;
+    UCHAR Page;
+    UCHAR Mode;
+    UCHAR Masked;
+    UCHAR TerminalCount;
+} VDMA8237_CHANNEL;
+
+typedef struct _VDMA8237_STATE {
+    VDMA8237_CHANNEL Ch[8];
+    UCHAR Command0, Command1;
+    UCHAR Status0, Status1;
+    UCHAR Mask0, Mask1;
+    UCHAR FlipFlop0, FlipFlop1;
+} VDMA8237_STATE;
+
+typedef struct _IT8888_DMA_BUFFER {
+    WDFCOMMONBUFFER CommonBuffer;
+    PVOID Va;
+    PHYSICAL_ADDRESS Logical;
+    SIZE_T Size;
+    ULONG BufferId;
+} IT8888_DMA_BUFFER;
+
+typedef struct _IT8888_DDMA_STATE {
+    UCHAR Armed;
+    UCHAR Channel;
+    UCHAR Direction;
+    UCHAR LastCommand;
+    ULONG Count;
+    ULONG Flags;
+    PHYSICAL_ADDRESS Logical;
+    USHORT Base;
+    UCHAR StatusReg;
+    UCHAR ModeReg;
+    ULONG CompletionCount;
+    ULONG ErrorCount;
+} IT8888_DDMA_STATE;
+
+typedef struct _IT8888_TRACE_RING {
+    IT8888_TRACE_ENTRY Entries[IT8888_TRACE_RING_SIZE];
+    ULONG Head;
+    ULONG Count;
+    ULONG Dropped;
+    ULONGLONG Seq;
+    WDFSPINLOCK Lock;
+} IT8888_TRACE_RING;
+
+typedef struct _DEVICE_CONTEXT {
+    WDFDEVICE Device;
+    WDFQUEUE Queue;
+    WDFINTERRUPT Interrupt;
+    WDFDMAENABLER DmaEnabler;
+    BUS_INTERFACE_STANDARD BusInterface;
+    BOOLEAN BusInterfaceValid;
+    BOOLEAN Started;
+    BOOLEAN ResourcesMapped;
+    USHORT VendorId;
+    USHORT DeviceId;
+    UCHAR RevisionId;
+    UCHAR BusNumber;
+    UCHAR DeviceNumber;
+    UCHAR FunctionNumber;
+    USHORT DdmaBase[8];
+    IT8888_DMA_BUFFER Dma;
+    VDMA8237_STATE Vdma;
+    IT8888_DDMA_STATE Ddma;
+    IT8888_TRACE_RING Trace;
+    KEVENT IrqEvent;
+    volatile LONG IrqPending;
+    ULONG IrqCount;
+    ULONG LastIrqVector;
+    ULONG LastIrqStatus;
+    WDFWAITLOCK HwLock;
+} DEVICE_CONTEXT, *PDEVICE_CONTEXT;
+
+WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(DEVICE_CONTEXT, DeviceGetContext)
+
+DRIVER_INITIALIZE DriverEntry;
+EVT_WDF_DRIVER_DEVICE_ADD It8888EvtDeviceAdd;
+EVT_WDF_DEVICE_PREPARE_HARDWARE It8888EvtPrepareHardware;
+EVT_WDF_DEVICE_RELEASE_HARDWARE It8888EvtReleaseHardware;
+EVT_WDF_IO_QUEUE_IO_DEVICE_CONTROL It8888EvtIoDeviceControl;
+EVT_WDF_INTERRUPT_ISR It8888EvtInterruptIsr;
+EVT_WDF_INTERRUPT_DPC It8888EvtInterruptDpc;
+
+NTSTATUS It8888PciRead(PDEVICE_CONTEXT ctx, USHORT offset, UCHAR width, PULONG value);
+NTSTATUS It8888PciWrite(PDEVICE_CONTEXT ctx, USHORT offset, UCHAR width, ULONG value);
+NTSTATUS It8888EnableCommandBits(PDEVICE_CONTEXT ctx);
+NTSTATUS It8888ApplyDefaultInit(PDEVICE_CONTEXT ctx);
+VOID It8888RefreshDdmaBases(PDEVICE_CONTEXT ctx);
+NTSTATUS It8888GetInfo(PDEVICE_CONTEXT ctx, PIT8888_INFO info);
+NTSTATUS It8888PortRead(PDEVICE_CONTEXT ctx, USHORT port, UCHAR width, PULONG value);
+NTSTATUS It8888PortWrite(PDEVICE_CONTEXT ctx, USHORT port, UCHAR width, ULONG value);
+NTSTATUS It8888DmaAllocate(PDEVICE_CONTEXT ctx, ULONG size, PIT8888_DMA_INFO outInfo);
+VOID It8888DmaFree(PDEVICE_CONTEXT ctx);
+NTSTATUS It8888DmaInfo(PDEVICE_CONTEXT ctx, PIT8888_DMA_INFO outInfo);
+
+VOID Vdma8237Reset(PDEVICE_CONTEXT ctx);
+NTSTATUS Vdma8237Out(PDEVICE_CONTEXT ctx, USHORT port, UCHAR value);
+NTSTATUS Vdma8237In(PDEVICE_CONTEXT ctx, USHORT port, PUCHAR value);
+VOID Vdma8237Snapshot(PDEVICE_CONTEXT ctx, PIT8888_8237_SNAPSHOT snap);
+NTSTATUS Vdma8237Prepare(PDEVICE_CONTEXT ctx, UCHAR channel, PIT8888_8237_PREPARE prep);
+
+NTSTATUS It8888DdmaArm(PDEVICE_CONTEXT ctx, PIT8888_DDMA_REQUEST req, PIT8888_DDMA_STATUS status);
+NTSTATUS It8888DdmaStart(PDEVICE_CONTEXT ctx, PIT8888_DDMA_STATUS status);
+NTSTATUS It8888DdmaPoll(PDEVICE_CONTEXT ctx, PIT8888_DDMA_STATUS status);
+VOID It8888DdmaClear(PDEVICE_CONTEXT ctx);
+VOID It8888DdmaStatus(PDEVICE_CONTEXT ctx, PIT8888_DDMA_STATUS status);
+NTSTATUS It8888PanicReset(PDEVICE_CONTEXT ctx);
+NTSTATUS It8888ClearErrors(PDEVICE_CONTEXT ctx);
+
+VOID It8888TraceInit(PDEVICE_CONTEXT ctx);
+VOID It8888Trace(PDEVICE_CONTEXT ctx, ULONG type, ULONG a, ULONGLONG b, ULONGLONG c);
+VOID It8888TraceClear(PDEVICE_CONTEXT ctx);
+VOID It8888TraceGet(PDEVICE_CONTEXT ctx, PIT8888_TRACE_PACKET pkt);
+

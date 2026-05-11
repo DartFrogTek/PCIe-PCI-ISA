@@ -1,0 +1,99 @@
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{889FB4A8-4447-4FC2-9296-888800000001}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectName>it8888vdma</ProjectName>
+    <RootNamespace>it8888vdma</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>KMDF</DriverType>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <SpectreMitigation>false</SpectreMitigation>
+    <SpectreMitigation>false</SpectreMitigation>
+    <DriverTargetPlatform>Universal</DriverTargetPlatform>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>KMDF</DriverType>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <SpectreMitigation>false</SpectreMitigation>
+    <SpectreMitigation>false</SpectreMitigation>
+    <DriverTargetPlatform>Universal</DriverTargetPlatform>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <!--
+    Fallback WDK paths. On some VS/WDK installs the WDK kernel include path is not
+    injected even when PlatformToolset=WindowsKernelModeDriver10.0. build_all.bat
+    discovers these paths and passes them as IT8888_WDK_* properties.
+  -->
+  <PropertyGroup>
+    <IT8888_WDK_KM_INC Condition="'$(IT8888_WDK_KM_INC)'==''">$(WindowsSdkDir)Include\$(WindowsTargetPlatformVersion)\km</IT8888_WDK_KM_INC>
+    <IT8888_WDK_SHARED_INC Condition="'$(IT8888_WDK_SHARED_INC)'==''">$(WindowsSdkDir)Include\$(WindowsTargetPlatformVersion)\shared</IT8888_WDK_SHARED_INC>
+    <IT8888_WDK_UCRT_INC Condition="'$(IT8888_WDK_UCRT_INC)'==''">$(WindowsSdkDir)Include\$(WindowsTargetPlatformVersion)\ucrt</IT8888_WDK_UCRT_INC>
+    <IT8888_WDK_KM_LIB Condition="'$(IT8888_WDK_KM_LIB)'==''">$(WindowsSdkDir)Lib\$(WindowsTargetPlatformVersion)\km\x64</IT8888_WDK_KM_LIB>
+    <IT8888_WDK_WDF_INC Condition="'$(IT8888_WDK_WDF_INC)'==''">$(WindowsSdkDir)Include\wdf\kmdf\1.15</IT8888_WDK_WDF_INC>
+    <IT8888_WDK_WDF_LIB Condition="'$(IT8888_WDK_WDF_LIB)'==''">$(WindowsSdkDir)Lib\wdf\kmdf\x64\1.15</IT8888_WDK_WDF_LIB>
+    <IT8888_WDK_KMDF_MAJOR Condition="'$(IT8888_WDK_KMDF_MAJOR)'==''">1</IT8888_WDK_KMDF_MAJOR>
+    <IT8888_WDK_KMDF_MINOR Condition="'$(IT8888_WDK_KMDF_MINOR)'==''">15</IT8888_WDK_KMDF_MINOR>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WppEnabled>false</WppEnabled>
+      <WarningLevel>Level3</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <ExceptionHandling>false</ExceptionHandling>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <AdditionalIncludeDirectories>$(IT8888_WDK_WDF_INC);$(IT8888_WDK_KM_INC);$(IT8888_WDK_SHARED_INC);$(IT8888_WDK_UCRT_INC);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>KMDF_VERSION_MAJOR=$(IT8888_WDK_KMDF_MAJOR);KMDF_VERSION_MINOR=$(IT8888_WDK_KMDF_MINOR);_AMD64_;AMD64;_WIN64;WIN64;_KERNEL_MODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(IT8888_WDK_WDF_LIB);$(IT8888_WDK_KM_LIB);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>WdfDriverEntry.lib;ntoskrnl.lib;hal.lib;wmilib.lib;BufferOverflowK.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <SubSystem>Native</SubSystem>
+      <EntryPointSymbol>DriverEntry</EntryPointSymbol>
+      <AdditionalOptions>/DRIVER /MANIFEST:NO %(AdditionalOptions)</AdditionalOptions>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+    </Link>
+    <DriverSign>
+      <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
+    </DriverSign>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="driver.c" />
+    <ClCompile Include="device.c" />
+    <ClCompile Include="queue.c" />
+    <ClCompile Include="it8888_pci.c" />
+    <ClCompile Include="it8888_io.c" />
+    <ClCompile Include="it8888_dma.c" />
+    <ClCompile Include="vdma8237.c" />
+    <ClCompile Include="ddma.c" />
+    <ClCompile Include="trace.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="it8888.h" />
+    <ClInclude Include="public.h" />
+    <Inf Include="it8888vdma.inf" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <PropertyGroup Label="Fix11DriverOutput">
+    <ConfigurationType>Driver</ConfigurationType>
+    <TargetName>it8888vdma</TargetName>
+    <TargetExt>.sys</TargetExt>
+    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)obj\$(Platform)\$(Configuration)\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+</Project>

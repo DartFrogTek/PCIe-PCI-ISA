@@ -13,3 +13,14 @@ AT24C02_Programmer/pico_flash_region.ld
 /AT24C02_Programmer/pico_c/isa8888_programmer/generated
 /AT24C02_Programmer/pico_c/isa8888_programmer/pico-sdk
 /AT24C02_Programmer/pico_c/isa8888_programmer/.vscode
+/DFT_VMDA8/it8888vdma_win10_layer1
+/DFT_VMDA8/it8888vdma_win10_layer2
+/DFT_VMDA8/it8888vdma_win10_layer3
+/DFT_VMDA8/it8888vdma_win10_predosbox/build
+/DFT_VMDA8/it8888vdma_win10_predosbox/build_logs
+/DFT_VMDA8/it8888vdma_win10_predosbox/driver/it8888vdma/x64
+/DFT_VMDA8/it8888vdma_win10_predosbox/driver/obj
+/DFT_VMDA8/it8888vdma_win10_predosbox/driver/obj_direct
+/DFT_VMDA8/it8888vdma_win10_predosbox/driver/x64/Debug
+/DFT_VMDA8/it8888vdma_win10_predosbox/tools/it8888ctl/it8888ctl/x64
+/DFT_VMDA8/it8888vdma_win10_predosbox/tools/it8888ctl/x64/Debug
