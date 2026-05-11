@@ -99,7 +99,7 @@ it8888ctl.exe trace
 
 ## Build notes
 
-This was generated without a local Windows WDK compiler in the sandbox. It is intentionally written as a WDK/VS2022 starting point and may require small project-setting or API nits on first build.
+It is intentionally written as a WDK/VS2022 starting point and may require small project-setting or API nits on first build.
 
 Recommended:
 
