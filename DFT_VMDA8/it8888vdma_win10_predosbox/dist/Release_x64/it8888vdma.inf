@@ -1,0 +1,44 @@
+; IT8888VDMA diagnostic driver INF - Windows 10 x64, test-signed development only
+[Version]
+Signature="$WINDOWS NT$"
+Class=System
+ClassGuid={4d36e97d-e325-11ce-bfc1-08002be10318}
+Provider=%ManufacturerName%
+DriverVer=05/11/2026,0.4.0.0
+CatalogFile=it8888vdma.cat
+
+[DestinationDirs]
+DefaultDestDir = 12
+
+[Manufacturer]
+%ManufacturerName%=Standard,NTamd64
+
+[Standard.NTamd64]
+%IT8888.DeviceDesc%=IT8888_Install, PCI\VEN_1283&DEV_8888
+
+[IT8888_Install.NT]
+CopyFiles=Drivers_Dir
+
+[Drivers_Dir]
+it8888vdma.sys
+
+[IT8888_Install.NT.Services]
+AddService=it8888vdma,0x00000002,IT8888_Service
+
+[IT8888_Service]
+DisplayName=%IT8888.SvcDesc%
+ServiceType=1
+StartType=3
+ErrorControl=1
+ServiceBinary=%12%\it8888vdma.sys
+
+[IT8888_Install.NT.Wdf]
+KmdfService=it8888vdma, it8888vdma_wdfsect
+
+[it8888vdma_wdfsect]
+KmdfLibraryVersion=1.15
+
+[Strings]
+ManufacturerName="DartFrogTek"
+IT8888.DeviceDesc="IT8888 PCI-to-ISA VDMA/DDMA Diagnostic Driver"
+IT8888.SvcDesc="IT8888 VDMA/DDMA Diagnostic Service"
