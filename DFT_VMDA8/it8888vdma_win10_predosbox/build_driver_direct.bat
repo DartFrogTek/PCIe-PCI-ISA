@@ -59,7 +59,7 @@ echo link it8888vdma.sys
 
 set LIBPATHS=/LIBPATH:"%IT8888_WDK_KM_LIB%" /LIBPATH:"%IT8888_WDK_WDF_LIB%"
 set LIBS=ntoskrnl.lib hal.lib wmilib.lib BufferOverflowK.lib WdfDriverEntry.lib WdfLdr.lib wdmguid.lib
-set LFLAGS=/nologo /OUT:"%SYS%" /PDB:"%PDB%" /SUBSYSTEM:NATIVE /DRIVER /NODEFAULTLIB /ENTRY:DriverEntry /MACHINE:X64 /DEBUG %LIBPATHS%
+set LFLAGS=/nologo /OUT:"%SYS%" /PDB:"%PDB%" /SUBSYSTEM:NATIVE /DRIVER /NODEFAULTLIB /ENTRY:FxDriverEntry /MACHINE:X64 /DEBUG %LIBPATHS%
 
 link %LFLAGS% "%OBJDIR%\driver.obj" "%OBJDIR%\device.obj" "%OBJDIR%\queue.obj" "%OBJDIR%\it8888_pci.obj" "%OBJDIR%\it8888_io.obj" "%OBJDIR%\it8888_dma.obj" "%OBJDIR%\vdma8237.obj" "%OBJDIR%\ddma.obj" "%OBJDIR%\trace.obj" %LIBS% >>"%LOG%" 2>&1
 if errorlevel 1 (
@@ -77,3 +77,4 @@ if not exist "%SYS%" (
 
 echo Built: %SYS%
 exit /b 0
+
