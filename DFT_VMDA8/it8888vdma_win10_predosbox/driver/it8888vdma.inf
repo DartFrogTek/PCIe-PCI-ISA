@@ -8,6 +8,8 @@ DriverVer=05/11/2026,0.4.0.0
 CatalogFile=it8888vdma.cat
 
 [DestinationDirs]
+IT8888VDMA_CopyFiles = 12
+DefaultDestDir = 12
 DefaultDestDir = 12
 
 [Manufacturer]
@@ -39,6 +41,17 @@ KmdfService=it8888vdma, it8888vdma_wdfsect
 KmdfLibraryVersion=1.15
 
 [Strings]
+DiskName = "IT8888VDMA Driver Disk"
 ManufacturerName="DartFrogTek"
 IT8888.DeviceDesc="IT8888 PCI-to-ISA VDMA/DDMA Diagnostic Driver"
 IT8888.SvcDesc="IT8888 VDMA/DDMA Diagnostic Service"
+
+[IT8888VDMA_CopyFiles]
+it8888vdma.sys
+
+[SourceDisksNames]
+1 = %DiskName%,,,
+
+[SourceDisksFiles]
+it8888vdma.sys = 1
+
