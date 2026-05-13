@@ -8,14 +8,11 @@ NTSTATUS It8888EvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT DeviceInit)
   WDFDEVICE device;
   PDEVICE_CONTEXT ctx;
   WDF_IO_QUEUE_CONFIG qcfg;
-  WDF_INTERRUPT_CONFIG icfg;
-  WDF_DMA_ENABLER_CONFIG dmacfg;
+  WDF_INTERRUPT_CONFIG icfg; WDF_DMA_ENABLER_CONFIG dmacfg; WDF_PNPPOWER_EVENT_CALLBACKS pnp;
   UNICODE_STRING sym;
 
   WdfDeviceInitSetDeviceType(DeviceInit, FILE_DEVICE_IT8888VDMA);
-  WdfDeviceInitSetIoType(DeviceInit, WdfDeviceIoBuffered);
-
-  WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&attrs, DEVICE_CONTEXT);
+  WdfDeviceInitSetIoType(DeviceInit, WdfDeviceIoBuffered); WDF_PNPPOWER_EVENT_CALLBACKS_INIT(&pnp); pnp.EvtDevicePrepareHardware = It8888EvtPrepareHardware; pnp.EvtDeviceReleaseHardware = It8888EvtReleaseHardware; WdfDeviceInitSetPnpPowerEventCallbacks(DeviceInit, &pnp); WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&attrs, DEVICE_CONTEXT);
   status = WdfDeviceCreate(&DeviceInit, &attrs, &device);
   if (!NT_SUCCESS(status))
     return status;
@@ -148,3 +145,4 @@ VOID It8888EvtInterruptDpc(WDFINTERRUPT Interrupt, WDFOBJECT AssociatedObject)
   UNREFERENCED_PARAMETER(Interrupt);
   UNREFERENCED_PARAMETER(AssociatedObject);
 }
+
