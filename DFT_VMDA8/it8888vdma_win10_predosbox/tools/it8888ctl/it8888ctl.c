@@ -331,6 +331,144 @@ static int cmd_ddma_probe(HANDLE h, int ac, char **av)
 
     return 0;
 }
+
+static uint16_t rd16u(const uint8_t *p, uint32_t off)
+{
+    return (uint16_t)(p[off] | ((uint16_t)p[off + 1] << 8));
+}
+
+static uint32_t rd32u(const uint8_t *p, uint32_t off)
+{
+    return (uint32_t)p[off] |
+           ((uint32_t)p[off + 1] << 8) |
+           ((uint32_t)p[off + 2] << 16) |
+           ((uint32_t)p[off + 3] << 24);
+}
+
+static void print_pci_cfg_hex(const uint8_t *p)
+{
+    for (uint32_t off = 0; off < 256; off += 16) {
+        printf("%02x:", off);
+        for (uint32_t i = 0; i < 16; i += 4) {
+            printf(" %08x", rd32u(p, off + i));
+        }
+        printf("\n");
+    }
+}
+
+static void print_bridge_decode(const uint8_t *p)
+{
+    uint8_t baseClass = p[0x0B];
+    uint8_t subClass  = p[0x0A];
+    uint8_t progIf    = p[0x09];
+
+    printf("\nclass=%02x subclass=%02x progif=%02x\n", baseClass, subClass, progIf);
+
+    if (baseClass != 0x06 || subClass != 0x04) {
+        printf("not a PCI-to-PCI bridge Type-1 decode target\n");
+        return;
+    }
+
+    uint8_t pri = p[0x18];
+    uint8_t sec = p[0x19];
+    uint8_t sub = p[0x1A];
+    uint8_t secLat = p[0x1B];
+
+    uint8_t ioBaseRaw = p[0x1C];
+    uint8_t ioLimitRaw = p[0x1D];
+    uint16_t secStatus = rd16u(p, 0x1E);
+
+    uint16_t memBaseRaw = rd16u(p, 0x20);
+    uint16_t memLimitRaw = rd16u(p, 0x22);
+    uint16_t preBaseRaw = rd16u(p, 0x24);
+    uint16_t preLimitRaw = rd16u(p, 0x26);
+    uint32_t preBaseUpper = rd32u(p, 0x28);
+    uint32_t preLimitUpper = rd32u(p, 0x2C);
+
+    uint16_t ioBaseUpper = rd16u(p, 0x30);
+    uint16_t ioLimitUpper = rd16u(p, 0x32);
+    uint16_t bridgeCtl = rd16u(p, 0x3E);
+
+    printf("bridge buses: primary=%u secondary=%u subordinate=%u sec_latency=%u\n",
+           pri, sec, sub, secLat);
+
+    printf("secondary_status=0x%04x bridge_control=0x%04x\n", secStatus, bridgeCtl);
+
+    printf("raw io_base=0x%02x io_limit=0x%02x io_base_upper=0x%04x io_limit_upper=0x%04x\n",
+           ioBaseRaw, ioLimitRaw, ioBaseUpper, ioLimitUpper);
+
+    if ((ioBaseRaw & 0x0F) == 0x01 || (ioLimitRaw & 0x0F) == 0x01) {
+        uint32_t ioBase = ((uint32_t)ioBaseUpper << 16) | ((uint32_t)(ioBaseRaw & 0xF0) << 8);
+        uint32_t ioLimit = ((uint32_t)ioLimitUpper << 16) | ((uint32_t)(ioLimitRaw & 0xF0) << 8) | 0x0FFFu;
+
+        if ((ioBaseRaw & 0xF0) > (ioLimitRaw & 0xF0) && ioBaseUpper == ioLimitUpper) {
+            printf("I/O window appears disabled or inverted: base=0x%08x limit=0x%08x\n", ioBase, ioLimit);
+        } else {
+            printf("I/O window decoded: 0x%08x-0x%08x\n", ioBase, ioLimit);
+            printf("contains 0x0220: %s\n", (ioBase <= 0x220 && 0x220 <= ioLimit) ? "YES" : "NO");
+            printf("contains 0x0330: %s\n", (ioBase <= 0x330 && 0x330 <= ioLimit) ? "YES" : "NO");
+            printf("contains 0x0388: %s\n", (ioBase <= 0x388 && 0x388 <= ioLimit) ? "YES" : "NO");
+            printf("contains 0x8390: %s\n", (ioBase <= 0x8390 && 0x8390 <= ioLimit) ? "YES" : "NO");
+        }
+    } else {
+        uint32_t ioBase = ((uint32_t)(ioBaseRaw & 0xF0) << 8);
+        uint32_t ioLimit = ((uint32_t)(ioLimitRaw & 0xF0) << 8) | 0x0FFFu;
+
+        if ((ioBaseRaw & 0xF0) > (ioLimitRaw & 0xF0)) {
+            printf("I/O window appears disabled or inverted: base=0x%08x limit=0x%08x\n", ioBase, ioLimit);
+        } else {
+            printf("I/O window decoded: 0x%08x-0x%08x\n", ioBase, ioLimit);
+            printf("contains 0x0220: %s\n", (ioBase <= 0x220 && 0x220 <= ioLimit) ? "YES" : "NO");
+            printf("contains 0x0330: %s\n", (ioBase <= 0x330 && 0x330 <= ioLimit) ? "YES" : "NO");
+            printf("contains 0x0388: %s\n", (ioBase <= 0x388 && 0x388 <= ioLimit) ? "YES" : "NO");
+            printf("contains 0x8390: %s\n", (ioBase <= 0x8390 && 0x8390 <= ioLimit) ? "YES" : "NO");
+        }
+    }
+
+    uint32_t memBase = ((uint32_t)(memBaseRaw & 0xFFF0) << 16);
+    uint32_t memLimit = ((uint32_t)(memLimitRaw & 0xFFF0) << 16) | 0x000FFFFFu;
+    printf("memory window decoded: 0x%08x-0x%08x\n", memBase, memLimit);
+
+    printf("prefetch raw base=0x%04x limit=0x%04x upper_base=0x%08x upper_limit=0x%08x\n",
+           preBaseRaw, preLimitRaw, preBaseUpper, preLimitUpper);
+}
+
+static int cmd_pci_dumpcfg(HANDLE h, int ac, char **av)
+{
+    if (ac < 5) {
+        puts("pci-dumpcfg <bus> <device> <function>");
+        return 2;
+    }
+
+    IT8888_PCI_CFG_DUMP d;
+    memset(&d, 0, sizeof(d));
+    d.Bus = (uint8_t)u32(av[2]);
+    d.Device = (uint8_t)u32(av[3]);
+    d.Function = (uint8_t)u32(av[4]);
+
+    DWORD r;
+    if (!ioctl(h, IOCTL_IT8888_PCI_DUMPCFG, &d, sizeof(d), &d, sizeof(d), &r))
+        return 1;
+
+    printf("pci-dumpcfg bus=%u dev=%u func=%u bytes=%u status=%u\n",
+           d.Bus, d.Device, d.Function, d.BytesRead, d.Status);
+
+    if (d.BytesRead < 64) {
+        printf("short PCI config read; device may not exist or HalGetBusDataByOffset could not access it\n");
+        return 1;
+    }
+
+    printf("vendor:device %04x:%04x command/status %08x class %02x%02x%02x rev %02x\n",
+           rd16u(d.Data, 0x00),
+           rd16u(d.Data, 0x02),
+           rd32u(d.Data, 0x04),
+           d.Data[0x0B], d.Data[0x0A], d.Data[0x09], d.Data[0x08]);
+
+    print_pci_cfg_hex(d.Data);
+    print_bridge_decode(d.Data);
+
+    return 0;
+}
 static int cmd_simple(HANDLE h, DWORD code) {
   DWORD r;
   return ioctl(h, code, NULL, 0, NULL, 0, &r) ? 0 : 1;
@@ -500,7 +638,7 @@ int main(int ac, char **av) {
   if (IS("info"))
     rc = cmd_info(h);
   else if (IS("dumpcfg"))
-    rc = cmd_dumpcfg(h);
+    rc = cmd_dumpcfg(h); else if (IS("pci-dumpcfg")) rc = cmd_pci_dumpcfg(h, ac, av);
   else if (IS("init"))
     rc = cmd_init(h);
   else if (IS("cfgread"))
@@ -558,6 +696,7 @@ int main(int ac, char **av) {
   CloseHandle(h);
   return rc;
 }
+
 
 
 

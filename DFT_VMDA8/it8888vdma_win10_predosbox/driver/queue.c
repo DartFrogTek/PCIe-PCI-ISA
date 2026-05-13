@@ -34,7 +34,14 @@ VOID It8888EvtIoDeviceControl(WDFQUEUE Queue, WDFREQUEST Request,
   {
     switch (IoControlCode)
     {
-    case IOCTL_IT8888_GET_INFO:
+    case IOCTL_IT8888_PCI_DUMPCFG: {
+    GET_IN(IT8888_PCI_CFG_DUMP, in);
+    GET_OUT(IT8888_PCI_CFG_DUMP, out);
+    *out = *in;
+    status = It8888PciDumpCfgBdf(out);
+    if (NT_SUCCESS(status)) COMPLETE(sizeof(*out));
+    break;
+} case IOCTL_IT8888_GET_INFO:
     {
       GET_OUT(IT8888_INFO, o);
       status = It8888GetInfo(ctx, o);
@@ -277,5 +284,6 @@ case IOCTL_IT8888_DDMA_PROBE: {
 
   WdfRequestCompleteWithInformation(Request, status, info);
 }
+
 
 

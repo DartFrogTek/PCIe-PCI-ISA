@@ -165,3 +165,38 @@ NTSTATUS It8888ClearErrors(PDEVICE_CONTEXT ctx)
   It8888Trace(ctx, IT8888_TRACE_INFO, 0x201, cs, clear);
   return st;
 }
+
+NTSTATUS It8888PciDumpCfgBdf(PIT8888_PCI_CFG_DUMP dump)
+{
+    if (dump->Device > 31 || dump->Function > 7)
+        return STATUS_INVALID_PARAMETER;
+
+    PCI_SLOT_NUMBER slot;
+    RtlZeroMemory(&slot, sizeof(slot));
+    slot.u.bits.DeviceNumber = dump->Device;
+    slot.u.bits.FunctionNumber = dump->Function;
+
+    RtlZeroMemory(dump->Data, sizeof(dump->Data));
+    dump->BytesRead = 0;
+    dump->Status = 0;
+
+#pragma warning(push)
+#pragma warning(disable:4996)
+    ULONG got = HalGetBusDataByOffset(PCIConfiguration,
+                                      dump->Bus,
+                                      slot.u.AsULONG,
+                                      dump->Data,
+                                      0,
+                                      sizeof(dump->Data));
+#pragma warning(pop)
+
+    dump->BytesRead = got;
+
+    if (got == 0) {
+        dump->Status = 1;
+        return STATUS_NOT_FOUND;
+    }
+
+    return STATUS_SUCCESS;
+}
+

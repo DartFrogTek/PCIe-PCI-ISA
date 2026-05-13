@@ -72,6 +72,8 @@ typedef UINT64 uint64_t;
     IT8888_IOCTL(0x811, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define IOCTL_IT8888_DDMA_PROBE \
     IT8888_IOCTL(0x812, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_IT8888_PCI_DUMPCFG \
+    IT8888_IOCTL(0x8F0, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define IOCTL_IT8888_DEBUG_DUMP \
   IT8888_IOCTL(0x809, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
@@ -130,6 +132,15 @@ typedef UINT64 uint64_t;
 
 #pragma pack(push, 1)
 
+typedef struct IT8888_PCI_CFG_DUMP {
+    uint8_t Bus;
+    uint8_t Device;
+    uint8_t Function;
+    uint8_t Reserved;
+    uint32_t BytesRead;
+    uint32_t Status;
+    uint8_t Data[256];
+} IT8888_PCI_CFG_DUMP, *PIT8888_PCI_CFG_DUMP;
 typedef struct IT8888_INFO
 {
   uint16_t VendorId;
@@ -348,6 +359,8 @@ typedef struct IT8888_TRACE_PACKET
 #define IT8888_TRACE_PORT_WRITE IT8888_TRACE_IO_WRITE
 
 #endif /* IT8888VDMA_PUBLIC_H */
+
+
 
 
 
