@@ -1,6 +1,7 @@
 #include "it8888.h"
 
-static NTSTATUS DdmaBase(PDEVICE_CONTEXT ctx, UCHAR ch, PUSHORT base) {
+static NTSTATUS DdmaBase(PDEVICE_CONTEXT ctx, UCHAR ch, PUSHORT base)
+{
   if (ch > 7 || ch == 4)
     return STATUS_INVALID_PARAMETER;
   *base = ctx->DdmaBase[ch];
@@ -8,8 +9,10 @@ static NTSTATUS DdmaBase(PDEVICE_CONTEXT ctx, UCHAR ch, PUSHORT base) {
     return STATUS_DEVICE_CONFIGURATION_ERROR;
   return STATUS_SUCCESS;
 }
-static UCHAR BuildCommand(UCHAR dir) {
-  switch (dir) {
+static UCHAR BuildCommand(UCHAR dir)
+{
+  switch (dir)
+  {
   case IT8888_DIR_ISA_TO_RAM:
     return 0x04; // 8237 write/device->memory-ish
   case IT8888_DIR_RAM_TO_ISA:
@@ -18,7 +21,8 @@ static UCHAR BuildCommand(UCHAR dir) {
     return 0x00;
   }
 }
-static UCHAR BuildMode(UCHAR channel, UCHAR dir) {
+static UCHAR BuildMode(UCHAR channel, UCHAR dir)
+{
   UCHAR mode = channel & 3;
   if (dir == IT8888_DIR_ISA_TO_RAM)
     mode |= DMA_TRANSFER_WRITE;
@@ -28,18 +32,21 @@ static UCHAR BuildMode(UCHAR channel, UCHAR dir) {
   return mode;
 }
 static NTSTATUS WriteDdma8(PDEVICE_CONTEXT ctx, USHORT base, UCHAR off,
-                           UCHAR val) {
+                           UCHAR val)
+{
   return It8888PortWrite(ctx, (USHORT)(base + off), 1, val);
 }
 static NTSTATUS ReadDdma8(PDEVICE_CONTEXT ctx, USHORT base, UCHAR off,
-                          PUCHAR val) {
+                          PUCHAR val)
+{
   ULONG v;
   NTSTATUS st = It8888PortRead(ctx, (USHORT)(base + off), 1, &v);
   *val = (UCHAR)v;
   return st;
 }
 
-VOID It8888DdmaStatus(PDEVICE_CONTEXT ctx, PIT8888_DDMA_STATUS s) {
+VOID It8888DdmaStatus(PDEVICE_CONTEXT ctx, PIT8888_DDMA_STATUS s)
+{
   RtlZeroMemory(s, sizeof(*s));
   s->Armed = ctx->Ddma.Armed;
   s->Channel = ctx->Ddma.Channel;
@@ -59,7 +66,8 @@ VOID It8888DdmaStatus(PDEVICE_CONTEXT ctx, PIT8888_DDMA_STATUS s) {
 }
 
 NTSTATUS It8888DdmaArm(PDEVICE_CONTEXT ctx, PIT8888_DDMA_REQUEST req,
-                       PIT8888_DDMA_STATUS status) {
+                       PIT8888_DDMA_STATUS status)
+{
   if (!ctx->Dma.CommonBuffer)
     return STATUS_DEVICE_NOT_READY;
   if (req->Channel > 7 || req->Channel == 4)
@@ -111,7 +119,8 @@ record:
   It8888Trace(ctx, IT8888_TRACE_DDMA,
               req->Channel | ((ULONG)req->Direction << 8), addr.QuadPart,
               req->Count);
-  if (req->Flags & IT8888_DDMA_FLAG_POLL_AFTER) {
+  if (req->Flags & IT8888_DDMA_FLAG_POLL_AFTER)
+  {
     IT8888_DDMA_STATUS tmp;
     It8888DdmaPoll(ctx, &tmp);
   }
@@ -120,17 +129,20 @@ record:
   return STATUS_SUCCESS;
 }
 
-NTSTATUS It8888DdmaStart(PDEVICE_CONTEXT ctx, PIT8888_DDMA_STATUS status) {
+NTSTATUS It8888DdmaStart(PDEVICE_CONTEXT ctx, PIT8888_DDMA_STATUS status)
+{
   if (!ctx->Ddma.Armed)
     return STATUS_DEVICE_NOT_READY;
-  if (ctx->Ddma.Flags & IT8888_DDMA_FLAG_SOFT_REQUEST) {
+  if (ctx->Ddma.Flags & IT8888_DDMA_FLAG_SOFT_REQUEST)
+  {
     WriteDdma8(ctx, ctx->Ddma.Base, IT8888_DDMA_REG_REQUEST,
                0x04 | (ctx->Ddma.Channel & 3));
   }
   return It8888DdmaPoll(ctx, status);
 }
 
-NTSTATUS It8888DdmaPoll(PDEVICE_CONTEXT ctx, PIT8888_DDMA_STATUS status) {
+NTSTATUS It8888DdmaPoll(PDEVICE_CONTEXT ctx, PIT8888_DDMA_STATUS status)
+{
   if (!ctx->Ddma.Armed)
     return STATUS_DEVICE_NOT_READY;
   UCHAR s = 0, m = 0;
@@ -147,14 +159,16 @@ NTSTATUS It8888DdmaPoll(PDEVICE_CONTEXT ctx, PIT8888_DDMA_STATUS status) {
   return STATUS_SUCCESS;
 }
 
-VOID It8888DdmaClear(PDEVICE_CONTEXT ctx) {
+VOID It8888DdmaClear(PDEVICE_CONTEXT ctx)
+{
   if (ctx->Ddma.Base)
     WriteDdma8(ctx, ctx->Ddma.Base, IT8888_DDMA_REG_MASTERCLR, 0x00);
   RtlZeroMemory(&ctx->Ddma, sizeof(ctx->Ddma));
   It8888Trace(ctx, IT8888_TRACE_DDMA, 0xFFFF0001, 0, 0);
 }
 
-NTSTATUS It8888PanicReset(PDEVICE_CONTEXT ctx) {
+NTSTATUS It8888PanicReset(PDEVICE_CONTEXT ctx)
+{
   for (int i = 0; i < 8; i++)
     if (ctx->DdmaBase[i])
       WriteDdma8(ctx, ctx->DdmaBase[i], IT8888_DDMA_REG_MASTERCLR, 0x00);

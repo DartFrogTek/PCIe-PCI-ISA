@@ -1,8 +1,14 @@
 #pragma once
-#include "public.h"
+
 #include <ntddk.h>
 #include <wdf.h>
 #include <wdmguid.h>
+
+#ifndef _KERNEL_MODE
+#define _KERNEL_MODE 1
+#endif
+
+#include "public.h"
 
 #define IT8888_POOL_TAG '8tII'
 #define IT8888_CFG_CH01 0x40
@@ -37,7 +43,8 @@
 #define IT8888_DDMA_REG_MASTERCLR 0xD
 #define IT8888_DDMA_REG_MASK 0xF
 
-typedef struct _VDMA8237_CHANNEL {
+typedef struct _VDMA8237_CHANNEL
+{
   USHORT BaseAddr;
   USHORT CurAddr;
   USHORT BaseCount;
@@ -48,7 +55,8 @@ typedef struct _VDMA8237_CHANNEL {
   UCHAR TerminalCount;
 } VDMA8237_CHANNEL;
 
-typedef struct _VDMA8237_STATE {
+typedef struct _VDMA8237_STATE
+{
   VDMA8237_CHANNEL Ch[8];
   UCHAR Command0, Command1;
   UCHAR Status0, Status1;
@@ -56,7 +64,8 @@ typedef struct _VDMA8237_STATE {
   UCHAR FlipFlop0, FlipFlop1;
 } VDMA8237_STATE;
 
-typedef struct _IT8888_DMA_BUFFER {
+typedef struct _IT8888_DMA_BUFFER
+{
   WDFCOMMONBUFFER CommonBuffer;
   PVOID Va;
   PHYSICAL_ADDRESS Logical;
@@ -64,7 +73,8 @@ typedef struct _IT8888_DMA_BUFFER {
   ULONG BufferId;
 } IT8888_DMA_BUFFER;
 
-typedef struct _IT8888_DDMA_STATE {
+typedef struct _IT8888_DDMA_STATE
+{
   UCHAR Armed;
   UCHAR Channel;
   UCHAR Direction;
@@ -79,7 +89,8 @@ typedef struct _IT8888_DDMA_STATE {
   ULONG ErrorCount;
 } IT8888_DDMA_STATE;
 
-typedef struct _IT8888_TRACE_RING {
+typedef struct _IT8888_TRACE_RING
+{
   IT8888_TRACE_ENTRY Entries[IT8888_TRACE_RING_SIZE];
   ULONG Head;
   ULONG Count;
@@ -88,7 +99,8 @@ typedef struct _IT8888_TRACE_RING {
   WDFSPINLOCK Lock;
 } IT8888_TRACE_RING;
 
-typedef struct _DEVICE_CONTEXT {
+typedef struct _DEVICE_CONTEXT
+{
   WDFDEVICE Device;
   WDFQUEUE Queue;
   WDFINTERRUPT Interrupt;

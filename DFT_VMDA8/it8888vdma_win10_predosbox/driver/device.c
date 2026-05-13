@@ -1,6 +1,7 @@
 #include "it8888.h"
 
-NTSTATUS It8888EvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT DeviceInit) {
+NTSTATUS It8888EvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT DeviceInit)
+{
   UNREFERENCED_PARAMETER(Driver);
   NTSTATUS status;
   WDF_OBJECT_ATTRIBUTES attrs;
@@ -53,7 +54,8 @@ NTSTATUS It8888EvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT DeviceInit) {
       0x1000000); // 16MB max transfer cap for diagnostics
   status = WdfDmaEnablerCreate(device, &dmacfg, WDF_NO_OBJECT_ATTRIBUTES,
                                &ctx->DmaEnabler);
-  if (!NT_SUCCESS(status)) {
+  if (!NT_SUCCESS(status))
+  {
     // Keep driver usable for cfg/PIO even if DMA enabler fails; dma-alloc will
     // report failure.
     ctx->DmaEnabler = NULL;
@@ -64,7 +66,8 @@ NTSTATUS It8888EvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT DeviceInit) {
                             It8888EvtInterruptDpc);
   status = WdfInterruptCreate(device, &icfg, WDF_NO_OBJECT_ATTRIBUTES,
                               &ctx->Interrupt);
-  if (!NT_SUCCESS(status)) {
+  if (!NT_SUCCESS(status))
+  {
     ctx->Interrupt = NULL;
     It8888Trace(ctx, IT8888_TRACE_ERROR, 0xD002, (ULONGLONG)status, 0);
     status =
@@ -75,7 +78,8 @@ NTSTATUS It8888EvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT DeviceInit) {
 }
 
 NTSTATUS It8888EvtPrepareHardware(WDFDEVICE Device, WDFCMRESLIST Raw,
-                                  WDFCMRESLIST Translated) {
+                                  WDFCMRESLIST Translated)
+{
   UNREFERENCED_PARAMETER(Raw);
   UNREFERENCED_PARAMETER(Translated);
   PDEVICE_CONTEXT ctx = DeviceGetContext(Device);
@@ -85,10 +89,13 @@ NTSTATUS It8888EvtPrepareHardware(WDFDEVICE Device, WDFCMRESLIST Raw,
   status = WdfFdoQueryForInterface(Device, &GUID_BUS_INTERFACE_STANDARD,
                                    (PINTERFACE)&ctx->BusInterface,
                                    sizeof(BUS_INTERFACE_STANDARD), 1, NULL);
-  if (NT_SUCCESS(status)) {
+  if (NT_SUCCESS(status))
+  {
     ctx->BusInterfaceValid = TRUE;
     It8888Trace(ctx, IT8888_TRACE_INFO, 0x100, 1, 0);
-  } else {
+  }
+  else
+  {
     ctx->BusInterfaceValid = FALSE;
     It8888Trace(ctx, IT8888_TRACE_ERROR, 0x100, (ULONGLONG)status, 0);
     return status;
@@ -109,11 +116,13 @@ NTSTATUS It8888EvtPrepareHardware(WDFDEVICE Device, WDFCMRESLIST Raw,
   return STATUS_SUCCESS;
 }
 
-NTSTATUS It8888EvtReleaseHardware(WDFDEVICE Device, WDFCMRESLIST Translated) {
+NTSTATUS It8888EvtReleaseHardware(WDFDEVICE Device, WDFCMRESLIST Translated)
+{
   UNREFERENCED_PARAMETER(Translated);
   PDEVICE_CONTEXT ctx = DeviceGetContext(Device);
   It8888DmaFree(ctx);
-  if (ctx->BusInterfaceValid && ctx->BusInterface.InterfaceDereference) {
+  if (ctx->BusInterfaceValid && ctx->BusInterface.InterfaceDereference)
+  {
     ctx->BusInterface.InterfaceDereference(ctx->BusInterface.Context);
   }
   ctx->BusInterfaceValid = FALSE;
@@ -121,7 +130,8 @@ NTSTATUS It8888EvtReleaseHardware(WDFDEVICE Device, WDFCMRESLIST Translated) {
   return STATUS_SUCCESS;
 }
 
-BOOLEAN It8888EvtInterruptIsr(WDFINTERRUPT Interrupt, ULONG MessageID) {
+BOOLEAN It8888EvtInterruptIsr(WDFINTERRUPT Interrupt, ULONG MessageID)
+{
   PDEVICE_CONTEXT ctx = DeviceGetContext(WdfInterruptGetDevice(Interrupt));
   UNREFERENCED_PARAMETER(MessageID);
   InterlockedIncrement(&ctx->IrqPending);
@@ -133,7 +143,8 @@ BOOLEAN It8888EvtInterruptIsr(WDFINTERRUPT Interrupt, ULONG MessageID) {
   return TRUE;
 }
 
-VOID It8888EvtInterruptDpc(WDFINTERRUPT Interrupt, WDFOBJECT AssociatedObject) {
+VOID It8888EvtInterruptDpc(WDFINTERRUPT Interrupt, WDFOBJECT AssociatedObject)
+{
   UNREFERENCED_PARAMETER(Interrupt);
   UNREFERENCED_PARAMETER(AssociatedObject);
 }

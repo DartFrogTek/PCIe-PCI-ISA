@@ -1,6 +1,7 @@
 #include "it8888.h"
 
-VOID It8888TraceInit(PDEVICE_CONTEXT ctx) {
+VOID It8888TraceInit(PDEVICE_CONTEXT ctx)
+{
   WDF_OBJECT_ATTRIBUTES attrs;
   WDF_OBJECT_ATTRIBUTES_INIT(&attrs);
   attrs.ParentObject = ctx->Device;
@@ -9,7 +10,8 @@ VOID It8888TraceInit(PDEVICE_CONTEXT ctx) {
 }
 
 VOID It8888Trace(PDEVICE_CONTEXT ctx, ULONG type, ULONG a, ULONGLONG b,
-                 ULONGLONG c) {
+                 ULONGLONG c)
+{
   if (!ctx || !ctx->Trace.Lock)
     return;
   LARGE_INTEGER qpc = KeQueryPerformanceCounter(NULL);
@@ -29,7 +31,8 @@ VOID It8888Trace(PDEVICE_CONTEXT ctx, ULONG type, ULONG a, ULONGLONG b,
   WdfSpinLockRelease(ctx->Trace.Lock);
 }
 
-VOID It8888TraceClear(PDEVICE_CONTEXT ctx) {
+VOID It8888TraceClear(PDEVICE_CONTEXT ctx)
+{
   if (!ctx)
     return;
   if (ctx->Trace.Lock)
@@ -41,7 +44,8 @@ VOID It8888TraceClear(PDEVICE_CONTEXT ctx) {
     WdfSpinLockRelease(ctx->Trace.Lock);
 }
 
-VOID It8888TraceGet(PDEVICE_CONTEXT ctx, PIT8888_TRACE_PACKET pkt) {
+VOID It8888TraceGet(PDEVICE_CONTEXT ctx, PIT8888_TRACE_PACKET pkt)
+{
   RtlZeroMemory(pkt, sizeof(*pkt));
   if (!ctx->Trace.Lock)
     return;

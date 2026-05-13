@@ -1,6 +1,7 @@
 #include "it8888.h"
 
-static BOOLEAN It8888PortAllowed(USHORT port, UCHAR width) {
+static BOOLEAN It8888PortAllowed(USHORT port, UCHAR width)
+{
   if (!(width == 1 || width == 2 || width == 4))
     return FALSE;
   // Diagnostic allowlist. Expand deliberately for your hardware.
@@ -16,7 +17,8 @@ static BOOLEAN It8888PortAllowed(USHORT port, UCHAR width) {
 }
 
 NTSTATUS It8888PortRead(PDEVICE_CONTEXT ctx, USHORT port, UCHAR width,
-                        PULONG value) {
+                        PULONG value)
+{
   UNREFERENCED_PARAMETER(ctx);
   if (!It8888PortAllowed(port, width))
     return STATUS_ACCESS_DENIED;
@@ -33,7 +35,8 @@ NTSTATUS It8888PortRead(PDEVICE_CONTEXT ctx, USHORT port, UCHAR width,
 }
 
 NTSTATUS It8888PortWrite(PDEVICE_CONTEXT ctx, USHORT port, UCHAR width,
-                         ULONG value) {
+                         ULONG value)
+{
   UNREFERENCED_PARAMETER(ctx);
   if (!It8888PortAllowed(port, width))
     return STATUS_ACCESS_DENIED;

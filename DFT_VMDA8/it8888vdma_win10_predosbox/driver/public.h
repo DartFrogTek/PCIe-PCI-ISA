@@ -14,7 +14,7 @@
    - In user mode, include Windows.h/winioctl.h and stdint.h.
 */
 
-#if defined(_KERNEL_MODE) || defined(_NTDDK_) || defined(_WDMDDK_) ||          \
+#if defined(_KERNEL_MODE) || defined(_NTDDK_) || defined(_WDMDDK_) || \
     defined(_NTDDK_INCLUDED_) || defined(_WDF_H_)
 /* Kernel mode: fixed-width aliases backed by WDK types. */
 typedef UINT8 uint8_t;
@@ -39,66 +39,66 @@ typedef UINT64 uint64_t;
 
 #define FILE_DEVICE_IT8888VDMA 0x8888
 
-#define IT8888_IOCTL(index, method, access)                                    \
+#define IT8888_IOCTL(index, method, access) \
   CTL_CODE(FILE_DEVICE_IT8888VDMA, (index), (method), (access))
 
-#define IOCTL_IT8888_GET_INFO                                                  \
+#define IOCTL_IT8888_GET_INFO \
   IT8888_IOCTL(0x800, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_CFG_READ                                                  \
+#define IOCTL_IT8888_CFG_READ \
   IT8888_IOCTL(0x801, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_CFG_WRITE                                                 \
+#define IOCTL_IT8888_CFG_WRITE \
   IT8888_IOCTL(0x802, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_PORT_READ                                                 \
+#define IOCTL_IT8888_PORT_READ \
   IT8888_IOCTL(0x803, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_PORT_WRITE                                                \
+#define IOCTL_IT8888_PORT_WRITE \
   IT8888_IOCTL(0x804, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_INIT_DEFAULT                                              \
+#define IOCTL_IT8888_INIT_DEFAULT \
   IT8888_IOCTL(0x805, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_DMA_ALLOC                                                 \
+#define IOCTL_IT8888_DMA_ALLOC \
   IT8888_IOCTL(0x806, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_DMA_FREE                                                  \
+#define IOCTL_IT8888_DMA_FREE \
   IT8888_IOCTL(0x807, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_DMA_INFO                                                  \
+#define IOCTL_IT8888_DMA_INFO \
   IT8888_IOCTL(0x808, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_DEBUG_DUMP                                                \
+#define IOCTL_IT8888_DEBUG_DUMP \
   IT8888_IOCTL(0x809, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
-#define IOCTL_IT8888_8237_RESET                                                \
+#define IOCTL_IT8888_8237_RESET \
   IT8888_IOCTL(0x820, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_8237_OUT                                                  \
+#define IOCTL_IT8888_8237_OUT \
   IT8888_IOCTL(0x821, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_8237_IN                                                   \
+#define IOCTL_IT8888_8237_IN \
   IT8888_IOCTL(0x822, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_8237_SNAPSHOT                                             \
+#define IOCTL_IT8888_8237_SNAPSHOT \
   IT8888_IOCTL(0x823, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_8237_PREPARE                                              \
+#define IOCTL_IT8888_8237_PREPARE \
   IT8888_IOCTL(0x824, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
-#define IOCTL_IT8888_DDMA_ARM                                                  \
+#define IOCTL_IT8888_DDMA_ARM \
   IT8888_IOCTL(0x840, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_DDMA_START                                                \
+#define IOCTL_IT8888_DDMA_START \
   IT8888_IOCTL(0x841, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_DDMA_POLL                                                 \
+#define IOCTL_IT8888_DDMA_POLL \
   IT8888_IOCTL(0x842, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_DDMA_STATUS                                               \
+#define IOCTL_IT8888_DDMA_STATUS \
   IT8888_IOCTL(0x843, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_DDMA_CLEAR                                                \
+#define IOCTL_IT8888_DDMA_CLEAR \
   IT8888_IOCTL(0x844, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
-#define IOCTL_IT8888_IRQ_STATUS                                                \
+#define IOCTL_IT8888_IRQ_STATUS \
   IT8888_IOCTL(0x860, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_IRQ_ACK                                                   \
+#define IOCTL_IT8888_IRQ_ACK \
   IT8888_IOCTL(0x861, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_WAIT_IRQ                                                  \
+#define IOCTL_IT8888_WAIT_IRQ \
   IT8888_IOCTL(0x862, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
-#define IOCTL_IT8888_TRACE_GET                                                 \
+#define IOCTL_IT8888_TRACE_GET \
   IT8888_IOCTL(0x880, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_TRACE_CLEAR                                               \
+#define IOCTL_IT8888_TRACE_CLEAR \
   IT8888_IOCTL(0x881, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_PANIC_RESET                                               \
+#define IOCTL_IT8888_PANIC_RESET \
   IT8888_IOCTL(0x882, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IT8888_CLEAR_ERRORS                                              \
+#define IOCTL_IT8888_CLEAR_ERRORS \
   IT8888_IOCTL(0x883, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
 #define IT8888_DDMA_FLAG_DRY_RUN 0x00000001u
@@ -117,7 +117,8 @@ typedef UINT64 uint64_t;
 
 #pragma pack(push, 1)
 
-typedef struct IT8888_INFO {
+typedef struct IT8888_INFO
+{
   uint16_t VendorId;
   uint16_t DeviceId;
   uint8_t RevisionId;
@@ -139,39 +140,45 @@ typedef struct IT8888_INFO {
   uint32_t LastPciStatus;
 } IT8888_INFO, *PIT8888_INFO;
 
-typedef struct IT8888_CFG_ACCESS {
+typedef struct IT8888_CFG_ACCESS
+{
   uint16_t Offset;
   uint8_t Width;
   uint8_t Reserved;
   uint32_t Value;
 } IT8888_CFG_ACCESS, *PIT8888_CFG_ACCESS;
 
-typedef struct IT8888_PORT_ACCESS {
+typedef struct IT8888_PORT_ACCESS
+{
   uint16_t Port;
   uint8_t Width;
   uint8_t Reserved;
   uint32_t Value;
 } IT8888_PORT_ACCESS, *PIT8888_PORT_ACCESS;
 
-typedef struct IT8888_DMA_ALLOC_REQUEST {
+typedef struct IT8888_DMA_ALLOC_REQUEST
+{
   uint32_t Size;
   uint32_t Reserved;
 } IT8888_DMA_ALLOC_REQUEST, *PIT8888_DMA_ALLOC_REQUEST;
 
-typedef struct IT8888_DMA_INFO {
+typedef struct IT8888_DMA_INFO
+{
   uint32_t BufferId;
   uint32_t Size;
   uint64_t LogicalAddress;
   uint64_t KernelVaForDebug;
 } IT8888_DMA_INFO, *PIT8888_DMA_INFO;
 
-typedef struct IT8888_8237_PORT_OP {
+typedef struct IT8888_8237_PORT_OP
+{
   uint16_t Port;
   uint8_t Value;
   uint8_t Reserved;
 } IT8888_8237_PORT_OP, *PIT8888_8237_PORT_OP;
 
-typedef struct IT8888_8237_CHANNEL_SNAPSHOT {
+typedef struct IT8888_8237_CHANNEL_SNAPSHOT
+{
   uint16_t BaseAddr;
   uint16_t CurAddr;
   uint16_t BaseCount;
@@ -187,7 +194,8 @@ typedef struct IT8888_8237_CHANNEL_SNAPSHOT {
   uint16_t Reserved;
 } IT8888_8237_CHANNEL_SNAPSHOT, *PIT8888_8237_CHANNEL_SNAPSHOT;
 
-typedef struct IT8888_8237_SNAPSHOT {
+typedef struct IT8888_8237_SNAPSHOT
+{
   IT8888_8237_CHANNEL_SNAPSHOT Ch[8];
   uint8_t Command0;
   uint8_t Command1;
@@ -199,7 +207,8 @@ typedef struct IT8888_8237_SNAPSHOT {
   uint8_t FlipFlop1;
 } IT8888_8237_SNAPSHOT, *PIT8888_8237_SNAPSHOT;
 
-typedef struct IT8888_8237_PREPARE {
+typedef struct IT8888_8237_PREPARE
+{
   uint8_t Channel;
   uint8_t Direction;
   uint8_t Is16Bit;
@@ -210,7 +219,8 @@ typedef struct IT8888_8237_PREPARE {
   uint8_t Reserved[3];
 } IT8888_8237_PREPARE, *PIT8888_8237_PREPARE;
 
-typedef struct IT8888_DDMA_REQUEST {
+typedef struct IT8888_DDMA_REQUEST
+{
   uint8_t Channel;
   uint8_t Direction;
   uint16_t Reserved0;
@@ -219,7 +229,8 @@ typedef struct IT8888_DDMA_REQUEST {
   uint32_t Flags;
 } IT8888_DDMA_REQUEST, *PIT8888_DDMA_REQUEST;
 
-typedef struct IT8888_DDMA_STATUS {
+typedef struct IT8888_DDMA_STATUS
+{
   uint8_t Armed;
   uint8_t Channel;
   uint8_t Direction;
@@ -235,19 +246,22 @@ typedef struct IT8888_DDMA_STATUS {
   uint32_t LastPciStatus;
 } IT8888_DDMA_STATUS, *PIT8888_DDMA_STATUS;
 
-typedef struct IT8888_IRQ_STATUS {
+typedef struct IT8888_IRQ_STATUS
+{
   uint32_t IrqCount;
   uint32_t Pending;
   uint32_t LastVector;
   uint32_t LastStatus;
 } IT8888_IRQ_STATUS, *PIT8888_IRQ_STATUS;
 
-typedef struct IT8888_WAIT_IRQ_REQUEST {
+typedef struct IT8888_WAIT_IRQ_REQUEST
+{
   uint32_t TimeoutMs;
   uint32_t Reserved;
 } IT8888_WAIT_IRQ_REQUEST, *PIT8888_WAIT_IRQ_REQUEST;
 
-typedef struct IT8888_TRACE_ENTRY {
+typedef struct IT8888_TRACE_ENTRY
+{
   uint64_t Sequence;
   uint32_t Type;
   uint32_t A;
@@ -256,7 +270,8 @@ typedef struct IT8888_TRACE_ENTRY {
   uint64_t Qpc;
 } IT8888_TRACE_ENTRY, *PIT8888_TRACE_ENTRY;
 
-typedef struct IT8888_TRACE_PACKET {
+typedef struct IT8888_TRACE_PACKET
+{
   uint32_t Count;
   uint32_t Dropped;
   IT8888_TRACE_ENTRY Entries[IT8888_TRACE_MAX_USER];

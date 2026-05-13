@@ -39,14 +39,6 @@ KmdfService=it8888vdma, it8888vdma_wdfsect
 KmdfLibraryVersion=1.15
 
 [Strings]
-DiskName = "IT8888VDMA Install Disk"
 ManufacturerName="DartFrogTek"
 IT8888.DeviceDesc="IT8888 PCI-to-ISA VDMA/DDMA Diagnostic Driver"
 IT8888.SvcDesc="IT8888 VDMA/DDMA Diagnostic Service"
-
-[SourceDisksNames]
-1 = %DiskName%,,,
-
-[SourceDisksFiles]
-it8888vdma.sys = 1
-

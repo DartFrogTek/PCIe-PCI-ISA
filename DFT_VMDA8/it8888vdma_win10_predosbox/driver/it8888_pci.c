@@ -1,7 +1,9 @@
 #include "it8888.h"
 
-static NTSTATUS WidthToSize(UCHAR width, ULONG *size) {
-  if (width == 1 || width == 2 || width == 4) {
+static NTSTATUS WidthToSize(UCHAR width, ULONG *size)
+{
+  if (width == 1 || width == 2 || width == 4)
+  {
     *size = width;
     return STATUS_SUCCESS;
   }
@@ -9,7 +11,8 @@ static NTSTATUS WidthToSize(UCHAR width, ULONG *size) {
 }
 
 NTSTATUS It8888PciRead(PDEVICE_CONTEXT ctx, USHORT offset, UCHAR width,
-                       PULONG value) {
+                       PULONG value)
+{
   ULONG size;
   NTSTATUS st = WidthToSize(width, &size);
   ULONG v = 0;
@@ -31,7 +34,8 @@ NTSTATUS It8888PciRead(PDEVICE_CONTEXT ctx, USHORT offset, UCHAR width,
 }
 
 NTSTATUS It8888PciWrite(PDEVICE_CONTEXT ctx, USHORT offset, UCHAR width,
-                        ULONG value) {
+                        ULONG value)
+{
   ULONG size;
   NTSTATUS st = WidthToSize(width, &size);
   if (!NT_SUCCESS(st))
@@ -50,7 +54,8 @@ NTSTATUS It8888PciWrite(PDEVICE_CONTEXT ctx, USHORT offset, UCHAR width,
   return STATUS_SUCCESS;
 }
 
-NTSTATUS It8888EnableCommandBits(PDEVICE_CONTEXT ctx) {
+NTSTATUS It8888EnableCommandBits(PDEVICE_CONTEXT ctx)
+{
   ULONG cmd;
   NTSTATUS st = It8888PciRead(ctx, 0x04, 2, &cmd);
   if (!NT_SUCCESS(st))
@@ -60,27 +65,33 @@ NTSTATUS It8888EnableCommandBits(PDEVICE_CONTEXT ctx) {
   return It8888PciWrite(ctx, 0x04, 2, cmd);
 }
 
-VOID It8888RefreshDdmaBases(PDEVICE_CONTEXT ctx) {
+VOID It8888RefreshDdmaBases(PDEVICE_CONTEXT ctx)
+{
   ULONG v40 = 0, v44 = 0, v48 = 0, v4c = 0;
-  if (NT_SUCCESS(It8888PciRead(ctx, IT8888_CFG_CH01, 4, &v40))) {
+  if (NT_SUCCESS(It8888PciRead(ctx, IT8888_CFG_CH01, 4, &v40)))
+  {
     ctx->DdmaBase[0] = (USHORT)(v40 & 0xFFF0);
     ctx->DdmaBase[1] = (USHORT)((v40 >> 16) & 0xFFF0);
   }
-  if (NT_SUCCESS(It8888PciRead(ctx, IT8888_CFG_CH23, 4, &v44))) {
+  if (NT_SUCCESS(It8888PciRead(ctx, IT8888_CFG_CH23, 4, &v44)))
+  {
     ctx->DdmaBase[2] = (USHORT)(v44 & 0xFFF0);
     ctx->DdmaBase[3] = (USHORT)((v44 >> 16) & 0xFFF0);
   }
-  if (NT_SUCCESS(It8888PciRead(ctx, IT8888_CFG_CH45, 4, &v48))) {
+  if (NT_SUCCESS(It8888PciRead(ctx, IT8888_CFG_CH45, 4, &v48)))
+  {
     ctx->DdmaBase[4] = (USHORT)(v48 & 0xFFF0);
     ctx->DdmaBase[5] = (USHORT)((v48 >> 16) & 0xFFF0);
   }
-  if (NT_SUCCESS(It8888PciRead(ctx, IT8888_CFG_CH67, 4, &v4c))) {
+  if (NT_SUCCESS(It8888PciRead(ctx, IT8888_CFG_CH67, 4, &v4c)))
+  {
     ctx->DdmaBase[6] = (USHORT)(v4c & 0xFFF0);
     ctx->DdmaBase[7] = (USHORT)((v4c >> 16) & 0xFFF0);
   }
 }
 
-NTSTATUS It8888ApplyDefaultInit(PDEVICE_CONTEXT ctx) {
+NTSTATUS It8888ApplyDefaultInit(PDEVICE_CONTEXT ctx)
+{
   NTSTATUS st;
   WdfWaitLockAcquire(ctx->HwLock, NULL);
   st = It8888EnableCommandBits(ctx);
@@ -114,7 +125,8 @@ out:
   return st;
 }
 
-NTSTATUS It8888GetInfo(PDEVICE_CONTEXT ctx, PIT8888_INFO info) {
+NTSTATUS It8888GetInfo(PDEVICE_CONTEXT ctx, PIT8888_INFO info)
+{
   ULONG v = 0;
   RtlZeroMemory(info, sizeof(*info));
   info->VendorId = ctx->VendorId;
@@ -141,7 +153,8 @@ NTSTATUS It8888GetInfo(PDEVICE_CONTEXT ctx, PIT8888_INFO info) {
   return STATUS_SUCCESS;
 }
 
-NTSTATUS It8888ClearErrors(PDEVICE_CONTEXT ctx) {
+NTSTATUS It8888ClearErrors(PDEVICE_CONTEXT ctx)
+{
   // PCI status bits are write-1-to-clear in upper command/status word.
   ULONG cs = 0;
   NTSTATUS st = It8888PciRead(ctx, 0x04, 4, &cs);
