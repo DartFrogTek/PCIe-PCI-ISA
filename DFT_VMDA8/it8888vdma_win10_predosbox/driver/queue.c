@@ -88,7 +88,27 @@ VOID It8888EvtIoDeviceControl(WDFQUEUE Queue, WDFREQUEST Request,
         COMPLETE(sizeof(*out));
       break;
     }
-    case IOCTL_IT8888_DMA_FREE:
+    case IOCTL_IT8888_DMA_FILL: {
+    GET_IN(IT8888_DMA_MEMOP, in);
+    status = It8888DmaFill(ctx, in);
+    break;
+}
+case IOCTL_IT8888_DMA_DUMP: {
+    GET_IN(IT8888_DMA_DUMP, in);
+    GET_OUT(IT8888_DMA_DUMP, out);
+    *out = *in;
+    status = It8888DmaDump(ctx, out);
+    if (NT_SUCCESS(status)) COMPLETE(sizeof(*out));
+    break;
+}
+case IOCTL_IT8888_DMA_CHECK: {
+    GET_IN(IT8888_DMA_CHECK, in);
+    GET_OUT(IT8888_DMA_CHECK, out);
+    *out = *in;
+    status = It8888DmaCheck(ctx, out);
+    if (NT_SUCCESS(status)) COMPLETE(sizeof(*out));
+    break;
+} case IOCTL_IT8888_DMA_FREE:
     {
       It8888DmaFree(ctx);
       break;
@@ -234,3 +254,4 @@ VOID It8888EvtIoDeviceControl(WDFQUEUE Queue, WDFREQUEST Request,
 
   WdfRequestCompleteWithInformation(Request, status, info);
 }
+

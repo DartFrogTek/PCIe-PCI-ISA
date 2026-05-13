@@ -138,6 +138,105 @@ static int cmd_dma_info(HANDLE h) {
          (unsigned long long)out.KernelVaForDebug);
   return 0;
 }
+
+static int cmd_dma_fill(HANDLE h, int ac, char **av)
+{
+    if (ac < 5) {
+        puts("dma-fill <offset> <count> <byte>");
+        return 2;
+    }
+
+    IT8888_DMA_MEMOP op;
+    memset(&op, 0, sizeof(op));
+    op.Offset = u32(av[2]);
+    op.Count = u32(av[3]);
+    op.Value = (uint8_t)u32(av[4]);
+
+    DWORD r;
+    if (!ioctl(h, IOCTL_IT8888_DMA_FILL, &op, sizeof(op), NULL, 0, &r))
+        return 1;
+
+    printf("filled offset=0x%x count=%u value=0x%02x\n",
+           op.Offset, op.Count, op.Value);
+    return 0;
+}
+
+static void print_hex_ascii(uint32_t base, const uint8_t *p, uint32_t n)
+{
+    for (uint32_t i = 0; i < n; i += 16) {
+        printf("%08x: ", base + i);
+
+        for (uint32_t j = 0; j < 16; ++j) {
+            if (i + j < n)
+                printf("%02x ", p[i + j]);
+            else
+                printf("   ");
+        }
+
+        printf(" |");
+
+        for (uint32_t j = 0; j < 16 && i + j < n; ++j) {
+            uint8_t c = p[i + j];
+            putchar((c >= 32 && c <= 126) ? c : '.');
+        }
+
+        printf("|\n");
+    }
+}
+
+static int cmd_dma_dump(HANDLE h, int ac, char **av)
+{
+    if (ac < 4) {
+        puts("dma-dump <offset> <count>");
+        return 2;
+    }
+
+    IT8888_DMA_DUMP d;
+    memset(&d, 0, sizeof(d));
+    d.Offset = u32(av[2]);
+    d.Count = u32(av[3]);
+
+    if (d.Count > IT8888_DMA_DUMP_MAX) {
+        fprintf(stderr, "count too large, max %u\n", IT8888_DMA_DUMP_MAX);
+        return 2;
+    }
+
+    DWORD r;
+    if (!ioctl(h, IOCTL_IT8888_DMA_DUMP, &d, sizeof(d), &d, sizeof(d), &r))
+        return 1;
+
+    printf("dump offset=0x%x count=%u\n", d.Offset, d.Count);
+    print_hex_ascii(d.Offset, d.Data, d.Count);
+    return 0;
+}
+
+static int cmd_dma_check(HANDLE h, int ac, char **av)
+{
+    if (ac < 5) {
+        puts("dma-check <offset> <count> <byte>");
+        return 2;
+    }
+
+    IT8888_DMA_CHECK c;
+    memset(&c, 0, sizeof(c));
+    c.Offset = u32(av[2]);
+    c.Count = u32(av[3]);
+    c.Expected = (uint8_t)u32(av[4]);
+
+    DWORD r;
+    if (!ioctl(h, IOCTL_IT8888_DMA_CHECK, &c, sizeof(c), &c, sizeof(c), &r))
+        return 1;
+
+    printf("check offset=0x%x count=%u expected=0x%02x mismatches=%u",
+           c.Offset, c.Count, c.Expected, c.MismatchCount);
+
+    if (c.MismatchCount)
+        printf(" first_mismatch=0x%x actual=0x%02x",
+               c.FirstMismatchOffset, c.FirstActual);
+
+    printf("\n");
+    return c.MismatchCount ? 3 : 0;
+}
 static int cmd_simple(HANDLE h, DWORD code) {
   DWORD r;
   return ioctl(h, code, NULL, 0, NULL, 0, &r) ? 0 : 1;
@@ -289,7 +388,7 @@ static int cmd_trace(HANDLE h) {
 }
 static void usage(void) {
   puts("it8888ctl commands:\n info dumpcfg init cfgread cfgwrite in out "
-       "dma-alloc dma-info dma-free\n vreset vout vin vsnap vprepare\n "
+       "dma-alloc dma-info dma-fill dma-dump dma-check dma-free\n vreset vout vin vsnap vprepare\n "
        "ddma-arm ddma-start ddma-poll ddma-status ddma-clear\n irq-status "
        "irq-ack wait-irq\n trace trace-clear panic-reset clear-errors");
 }
@@ -321,7 +420,7 @@ int main(int ac, char **av) {
   else if (IS("dma-alloc"))
     rc = cmd_dma_alloc(h, ac, av);
   else if (IS("dma-info"))
-    rc = cmd_dma_info(h);
+    rc = cmd_dma_info(h); else if (IS("dma-fill")) rc = cmd_dma_fill(h, ac, av); else if (IS("dma-dump")) rc = cmd_dma_dump(h, ac, av); else if (IS("dma-check")) rc = cmd_dma_check(h, ac, av);
   else if (IS("dma-free"))
     rc = cmd_simple(h, IOCTL_IT8888_DMA_FREE);
   else if (IS("vreset"))
@@ -365,3 +464,4 @@ int main(int ac, char **av) {
   CloseHandle(h);
   return rc;
 }
+

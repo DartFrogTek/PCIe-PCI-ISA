@@ -60,6 +60,12 @@ typedef UINT64 uint64_t;
   IT8888_IOCTL(0x807, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define IOCTL_IT8888_DMA_INFO \
   IT8888_IOCTL(0x808, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_IT8888_DMA_FILL \
+    IT8888_IOCTL(0x80A, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_IT8888_DMA_DUMP \
+    IT8888_IOCTL(0x80B, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_IT8888_DMA_CHECK \
+    IT8888_IOCTL(0x80C, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define IOCTL_IT8888_DEBUG_DUMP \
   IT8888_IOCTL(0x809, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
@@ -112,6 +118,7 @@ typedef UINT64 uint64_t;
 #define IT8888_DIR_ISA_TO_RAM 1u
 #define IT8888_DIR_RAM_TO_ISA 2u
 
+#define IT8888_DMA_DUMP_MAX 256
 #define IT8888_TRACE_MAX_USER 128
 #define IT8888_TRACE_RING_SIZE 512
 
@@ -170,6 +177,29 @@ typedef struct IT8888_DMA_INFO
   uint64_t KernelVaForDebug;
 } IT8888_DMA_INFO, *PIT8888_DMA_INFO;
 
+typedef struct IT8888_DMA_MEMOP {
+    uint32_t Offset;
+    uint32_t Count;
+    uint8_t Value;
+    uint8_t Reserved[3];
+} IT8888_DMA_MEMOP, *PIT8888_DMA_MEMOP;
+
+typedef struct IT8888_DMA_DUMP {
+    uint32_t Offset;
+    uint32_t Count;
+    uint8_t Data[IT8888_DMA_DUMP_MAX];
+} IT8888_DMA_DUMP, *PIT8888_DMA_DUMP;
+
+typedef struct IT8888_DMA_CHECK {
+    uint32_t Offset;
+    uint32_t Count;
+    uint8_t Expected;
+    uint8_t Reserved[3];
+    uint32_t MismatchCount;
+    uint32_t FirstMismatchOffset;
+    uint8_t FirstActual;
+    uint8_t Reserved2[3];
+} IT8888_DMA_CHECK, *PIT8888_DMA_CHECK;
 typedef struct IT8888_8237_PORT_OP
 {
   uint16_t Port;
@@ -295,3 +325,8 @@ typedef struct IT8888_TRACE_PACKET
 #define IT8888_TRACE_PORT_WRITE IT8888_TRACE_IO_WRITE
 
 #endif /* IT8888VDMA_PUBLIC_H */
+
+
+
+
+
