@@ -24,3 +24,4 @@ AT24C02_Programmer/pico_flash_region.ld
 /DFT_VMDA8/it8888vdma_win10_predosbox/driver/x64/Debug
 /DFT_VMDA8/it8888vdma_win10_predosbox/tools/it8888ctl/it8888ctl/x64
 /DFT_VMDA8/it8888vdma_win10_predosbox/tools/it8888ctl/x64/Debug
+DFT_VMDA8/it8888vdma_win10_predosbox/dist/Debug_x64/DartFrogTekTestDriverCert.cer
