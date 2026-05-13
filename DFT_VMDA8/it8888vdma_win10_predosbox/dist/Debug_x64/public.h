@@ -66,6 +66,12 @@ typedef UINT64 uint64_t;
     IT8888_IOCTL(0x80B, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define IOCTL_IT8888_DMA_CHECK \
     IT8888_IOCTL(0x80C, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_IT8888_DDMA_R8 \
+    IT8888_IOCTL(0x810, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_IT8888_DDMA_W8 \
+    IT8888_IOCTL(0x811, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_IT8888_DDMA_PROBE \
+    IT8888_IOCTL(0x812, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define IOCTL_IT8888_DEBUG_DUMP \
   IT8888_IOCTL(0x809, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
@@ -259,6 +265,23 @@ typedef struct IT8888_DDMA_REQUEST
   uint32_t Flags;
 } IT8888_DDMA_REQUEST, *PIT8888_DDMA_REQUEST;
 
+typedef struct IT8888_DDMA_REG8 {
+    uint8_t Channel;
+    uint8_t Offset;
+    uint8_t Value;
+    uint8_t Reserved;
+    uint16_t Base;
+    uint16_t Port;
+} IT8888_DDMA_REG8, *PIT8888_DDMA_REG8;
+
+typedef struct IT8888_DDMA_PROBE {
+    uint8_t Channel;
+    uint8_t Count;
+    uint8_t Reserved[2];
+    uint16_t Base;
+    uint16_t FirstPort;
+    uint8_t Values[16];
+} IT8888_DDMA_PROBE, *PIT8888_DDMA_PROBE;
 typedef struct IT8888_DDMA_STATUS
 {
   uint8_t Armed;
@@ -325,6 +348,7 @@ typedef struct IT8888_TRACE_PACKET
 #define IT8888_TRACE_PORT_WRITE IT8888_TRACE_IO_WRITE
 
 #endif /* IT8888VDMA_PUBLIC_H */
+
 
 
 

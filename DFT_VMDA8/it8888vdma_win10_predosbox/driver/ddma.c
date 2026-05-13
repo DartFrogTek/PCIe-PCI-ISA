@@ -255,6 +255,84 @@ NTSTATUS It8888PanicReset(PDEVICE_CONTEXT ctx)
   return STATUS_SUCCESS;
 }
 
+NTSTATUS It8888DdmaRead8Raw(PDEVICE_CONTEXT ctx, PIT8888_DDMA_REG8 op)
+{
+    if (op->Offset > 0x0F)
+        return STATUS_INVALID_PARAMETER;
 
+    USHORT base;
+    NTSTATUS st = DdmaBase(ctx, op->Channel, &base);
+    if (!NT_SUCCESS(st))
+        return st;
 
+    UCHAR value = 0;
+    WdfWaitLockAcquire(ctx->HwLock, NULL);
+    st = ReadDdma8(ctx, base, op->Offset, &value);
+    WdfWaitLockRelease(ctx->HwLock);
+
+    if (!NT_SUCCESS(st))
+        return st;
+
+    op->Value = value;
+    op->Base = base;
+    op->Port = (USHORT)(base + op->Offset);
+
+    It8888Trace(ctx, IT8888_TRACE_DDMA, 0x52000000u | op->Channel | ((ULONG)op->Offset << 8), value, op->Port);
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS It8888DdmaWrite8Raw(PDEVICE_CONTEXT ctx, PIT8888_DDMA_REG8 op)
+{
+    if (op->Offset > 0x0F)
+        return STATUS_INVALID_PARAMETER;
+
+    USHORT base;
+    NTSTATUS st = DdmaBase(ctx, op->Channel, &base);
+    if (!NT_SUCCESS(st))
+        return st;
+
+    WdfWaitLockAcquire(ctx->HwLock, NULL);
+    st = WriteDdma8(ctx, base, op->Offset, op->Value);
+    WdfWaitLockRelease(ctx->HwLock);
+
+    if (!NT_SUCCESS(st))
+        return st;
+
+    op->Base = base;
+    op->Port = (USHORT)(base + op->Offset);
+
+    It8888Trace(ctx, IT8888_TRACE_DDMA, 0x57000000u | op->Channel | ((ULONG)op->Offset << 8), op->Value, op->Port);
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS It8888DdmaProbe(PDEVICE_CONTEXT ctx, PIT8888_DDMA_PROBE probe)
+{
+    USHORT base;
+    NTSTATUS st = DdmaBase(ctx, probe->Channel, &base);
+    if (!NT_SUCCESS(st))
+        return st;
+
+    probe->Base = base;
+    probe->FirstPort = base;
+
+    UCHAR count = probe->Count;
+    if (count == 0 || count > 16)
+        count = 16;
+    probe->Count = count;
+
+    WdfWaitLockAcquire(ctx->HwLock, NULL);
+    for (UCHAR i = 0; i < count; ++i) {
+        UCHAR v = 0;
+        st = ReadDdma8(ctx, base, i, &v);
+        if (!NT_SUCCESS(st)) {
+            WdfWaitLockRelease(ctx->HwLock);
+            return st;
+        }
+        probe->Values[i] = v;
+    }
+    WdfWaitLockRelease(ctx->HwLock);
+
+    It8888Trace(ctx, IT8888_TRACE_DDMA, 0x50524F42u, base, count);
+    return STATUS_SUCCESS;
+}
 

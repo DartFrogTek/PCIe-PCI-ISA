@@ -237,6 +237,100 @@ static int cmd_dma_check(HANDLE h, int ac, char **av)
     printf("\n");
     return c.MismatchCount ? 3 : 0;
 }
+
+static int cmd_ddma_r8(HANDLE h, int ac, char **av)
+{
+    if (ac < 4) {
+        puts("ddma-r8 <channel> <offset>");
+        return 2;
+    }
+
+    IT8888_DDMA_REG8 op;
+    memset(&op, 0, sizeof(op));
+    op.Channel = (uint8_t)u32(av[2]);
+    op.Offset = (uint8_t)u32(av[3]);
+
+    DWORD r;
+    if (!ioctl(h, IOCTL_IT8888_DDMA_R8, &op, sizeof(op), &op, sizeof(op), &r))
+        return 1;
+
+    printf("ddma-r8 ch=%u off=0x%02x base=0x%04x port=0x%04x value=0x%02x\n",
+           op.Channel, op.Offset, op.Base, op.Port, op.Value);
+    return 0;
+}
+
+static int cmd_ddma_w8(HANDLE h, int ac, char **av)
+{
+    if (ac < 5) {
+        puts("ddma-w8 <channel> <offset> <value>");
+        return 2;
+    }
+
+    IT8888_DDMA_REG8 op;
+    memset(&op, 0, sizeof(op));
+    op.Channel = (uint8_t)u32(av[2]);
+    op.Offset = (uint8_t)u32(av[3]);
+    op.Value = (uint8_t)u32(av[4]);
+
+    DWORD r;
+    if (!ioctl(h, IOCTL_IT8888_DDMA_W8, &op, sizeof(op), &op, sizeof(op), &r))
+        return 1;
+
+    printf("ddma-w8 ch=%u off=0x%02x base=0x%04x port=0x%04x value=0x%02x\n",
+           op.Channel, op.Offset, op.Base, op.Port, op.Value);
+    return 0;
+}
+
+enum {
+    IT8888CTL_DDMA_REG_ADDR0     = 0x00,
+    IT8888CTL_DDMA_REG_ADDR1     = 0x01,
+    IT8888CTL_DDMA_REG_ADDR2     = 0x02,
+    IT8888CTL_DDMA_REG_ADDR3     = 0x03,
+    IT8888CTL_DDMA_REG_COUNT0    = 0x04,
+    IT8888CTL_DDMA_REG_COUNT1    = 0x05,
+    IT8888CTL_DDMA_REG_COMMAND   = 0x08,
+    IT8888CTL_DDMA_REG_REQUEST   = 0x09,
+    IT8888CTL_DDMA_REG_MODE      = 0x0B,
+    IT8888CTL_DDMA_REG_MASTERCLR = 0x0D,
+    IT8888CTL_DDMA_REG_MASK      = 0x0F
+};
+static int cmd_ddma_probe(HANDLE h, int ac, char **av)
+{
+    if (ac < 3) {
+        puts("ddma-probe <channel>");
+        return 2;
+    }
+
+    IT8888_DDMA_PROBE p;
+    memset(&p, 0, sizeof(p));
+    p.Channel = (uint8_t)u32(av[2]);
+    p.Count = 16;
+
+    DWORD r;
+    if (!ioctl(h, IOCTL_IT8888_DDMA_PROBE, &p, sizeof(p), &p, sizeof(p), &r))
+        return 1;
+
+    printf("ddma-probe ch=%u base=0x%04x count=%u\n", p.Channel, p.Base, p.Count);
+    for (uint32_t i = 0; i < p.Count; ++i) {
+        printf("  +0x%02x port=0x%04x value=0x%02x", i, p.Base + i, p.Values[i]);
+
+        if (i == IT8888CTL_DDMA_REG_ADDR0)      printf("  ADDR0");
+        else if (i == IT8888CTL_DDMA_REG_ADDR1) printf("  ADDR1");
+        else if (i == IT8888CTL_DDMA_REG_ADDR2) printf("  ADDR2");
+        else if (i == IT8888CTL_DDMA_REG_ADDR3) printf("  ADDR3");
+        else if (i == IT8888CTL_DDMA_REG_COUNT0) printf("  COUNT0");
+        else if (i == IT8888CTL_DDMA_REG_COUNT1) printf("  COUNT1");
+        else if (i == IT8888CTL_DDMA_REG_COMMAND) printf("  COMMAND/STATUS?");
+        else if (i == IT8888CTL_DDMA_REG_REQUEST) printf("  REQUEST");
+        else if (i == IT8888CTL_DDMA_REG_MODE) printf("  MODE");
+        else if (i == IT8888CTL_DDMA_REG_MASTERCLR) printf("  MASTERCLR");
+        else if (i == IT8888CTL_DDMA_REG_MASK) printf("  MASK");
+
+        printf("\n");
+    }
+
+    return 0;
+}
 static int cmd_simple(HANDLE h, DWORD code) {
   DWORD r;
   return ioctl(h, code, NULL, 0, NULL, 0, &r) ? 0 : 1;
@@ -440,7 +534,7 @@ int main(int ac, char **av) {
   else if (IS("ddma-poll"))
     rc = cmd_ddma_status(h, IOCTL_IT8888_DDMA_POLL);
   else if (IS("ddma-status"))
-    rc = cmd_ddma_status(h, IOCTL_IT8888_DDMA_STATUS);
+    rc = cmd_ddma_status(h, IOCTL_IT8888_DDMA_STATUS); else if (IS("ddma-r8")) rc = cmd_ddma_r8(h, ac, av); else if (IS("ddma-w8")) rc = cmd_ddma_w8(h, ac, av); else if (IS("ddma-probe")) rc = cmd_ddma_probe(h, ac, av);
   else if (IS("ddma-clear"))
     rc = cmd_simple(h, IOCTL_IT8888_DDMA_CLEAR);
   else if (IS("irq-status"))
@@ -464,4 +558,6 @@ int main(int ac, char **av) {
   CloseHandle(h);
   return rc;
 }
+
+
 

@@ -183,7 +183,30 @@ case IOCTL_IT8888_DMA_CHECK: {
         COMPLETE(sizeof(*out));
       break;
     }
-    case IOCTL_IT8888_DDMA_STATUS:
+    case IOCTL_IT8888_DDMA_R8: {
+    GET_IN(IT8888_DDMA_REG8, in);
+    GET_OUT(IT8888_DDMA_REG8, out);
+    *out = *in;
+    status = It8888DdmaRead8Raw(ctx, out);
+    if (NT_SUCCESS(status)) COMPLETE(sizeof(*out));
+    break;
+}
+case IOCTL_IT8888_DDMA_W8: {
+    GET_IN(IT8888_DDMA_REG8, in);
+    GET_OUT(IT8888_DDMA_REG8, out);
+    *out = *in;
+    status = It8888DdmaWrite8Raw(ctx, out);
+    if (NT_SUCCESS(status)) COMPLETE(sizeof(*out));
+    break;
+}
+case IOCTL_IT8888_DDMA_PROBE: {
+    GET_IN(IT8888_DDMA_PROBE, in);
+    GET_OUT(IT8888_DDMA_PROBE, out);
+    *out = *in;
+    status = It8888DdmaProbe(ctx, out);
+    if (NT_SUCCESS(status)) COMPLETE(sizeof(*out));
+    break;
+} case IOCTL_IT8888_DDMA_STATUS:
     {
       GET_OUT(IT8888_DDMA_STATUS, out);
       It8888DdmaStatus(ctx, out);
@@ -254,4 +277,5 @@ case IOCTL_IT8888_DMA_CHECK: {
 
   WdfRequestCompleteWithInformation(Request, status, info);
 }
+
 
