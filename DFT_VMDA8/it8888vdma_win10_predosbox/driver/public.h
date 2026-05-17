@@ -72,6 +72,10 @@ typedef UINT64 uint64_t;
     IT8888_IOCTL(0x811, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define IOCTL_IT8888_DDMA_PROBE \
     IT8888_IOCTL(0x812, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_IT8888_PCI_CFGRW \
+    IT8888_IOCTL(0x8F1, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_IT8888_BRIDGE_IOWIN \
+    IT8888_IOCTL(0x8F2, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define IOCTL_IT8888_PCI_DUMPCFG \
     IT8888_IOCTL(0x8F0, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define IOCTL_IT8888_DEBUG_DUMP \
@@ -132,6 +136,38 @@ typedef UINT64 uint64_t;
 
 #pragma pack(push, 1)
 
+typedef struct IT8888_PCI_CFG_RW {
+    uint8_t Bus;
+    uint8_t Device;
+    uint8_t Function;
+    uint8_t Offset;
+    uint8_t Width;
+    uint8_t Write;
+    uint8_t Reserved[2];
+    uint32_t Value;
+    uint32_t Bytes;
+    uint32_t Status;
+} IT8888_PCI_CFG_RW, *PIT8888_PCI_CFG_RW;
+
+typedef struct IT8888_BRIDGE_IOWIN {
+    uint8_t Bus;
+    uint8_t Device;
+    uint8_t Function;
+    uint8_t Reserved;
+    uint32_t Base;
+    uint32_t Limit;
+    uint16_t OldCommand;
+    uint16_t NewCommand;
+    uint8_t OldIoBase;
+    uint8_t OldIoLimit;
+    uint8_t NewIoBase;
+    uint8_t NewIoLimit;
+    uint16_t OldIoBaseUpper;
+    uint16_t OldIoLimitUpper;
+    uint16_t NewIoBaseUpper;
+    uint16_t NewIoLimitUpper;
+    uint32_t Status;
+} IT8888_BRIDGE_IOWIN, *PIT8888_BRIDGE_IOWIN;
 typedef struct IT8888_PCI_CFG_DUMP {
     uint8_t Bus;
     uint8_t Device;
@@ -359,6 +395,7 @@ typedef struct IT8888_TRACE_PACKET
 #define IT8888_TRACE_PORT_WRITE IT8888_TRACE_IO_WRITE
 
 #endif /* IT8888VDMA_PUBLIC_H */
+
 
 
 

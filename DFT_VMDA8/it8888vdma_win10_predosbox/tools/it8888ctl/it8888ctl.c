@@ -469,7 +469,40 @@ static int cmd_pci_dumpcfg(HANDLE h, int ac, char **av)
 
     return 0;
 }
-static int cmd_simple(HANDLE h, DWORD code) {
+
+static int cmd_pci_cfgread(HANDLE h, int ac, char **av)
+{
+    if (ac < 7) { puts("pci-cfgread <bus> <device> <function> <offset> <width>"); return 2; }
+    IT8888_PCI_CFG_RW rw; memset(&rw,0,sizeof(rw));
+    rw.Bus=(uint8_t)u32(av[2]); rw.Device=(uint8_t)u32(av[3]); rw.Function=(uint8_t)u32(av[4]); rw.Offset=(uint8_t)u32(av[5]); rw.Width=(uint8_t)u32(av[6]);
+    DWORD r; if(!ioctl(h,IOCTL_IT8888_PCI_CFGRW,&rw,sizeof(rw),&rw,sizeof(rw),&r)) return 1;
+    printf("pci-cfgread %u:%u.%u off=0x%02x width=%u value=0x%0*x bytes=%u status=%u\n", rw.Bus,rw.Device,rw.Function,rw.Offset,rw.Width,rw.Width*2,rw.Value,rw.Bytes,rw.Status);
+    return 0;
+}
+
+static int cmd_pci_cfgwrite(HANDLE h, int ac, char **av)
+{
+    if (ac < 8) { puts("pci-cfgwrite <bus> <device> <function> <offset> <width> <value>"); return 2; }
+    IT8888_PCI_CFG_RW rw; memset(&rw,0,sizeof(rw));
+    rw.Bus=(uint8_t)u32(av[2]); rw.Device=(uint8_t)u32(av[3]); rw.Function=(uint8_t)u32(av[4]); rw.Offset=(uint8_t)u32(av[5]); rw.Width=(uint8_t)u32(av[6]); rw.Value=u32(av[7]); rw.Write=1;
+    DWORD r; if(!ioctl(h,IOCTL_IT8888_PCI_CFGRW,&rw,sizeof(rw),&rw,sizeof(rw),&r)) return 1;
+    printf("pci-cfgwrite %u:%u.%u off=0x%02x width=%u value=0x%x bytes=%u status=%u\n", rw.Bus,rw.Device,rw.Function,rw.Offset,rw.Width,rw.Value,rw.Bytes,rw.Status);
+    return 0;
+}
+
+static int cmd_bridge_iowin(HANDLE h, int ac, char **av)
+{
+    if (ac < 7) { puts("bridge-iowin <bus> <device> <function> <base> <limit>"); return 2; }
+    IT8888_BRIDGE_IOWIN w; memset(&w,0,sizeof(w));
+    w.Bus=(uint8_t)u32(av[2]); w.Device=(uint8_t)u32(av[3]); w.Function=(uint8_t)u32(av[4]); w.Base=u32(av[5]); w.Limit=u32(av[6]);
+    DWORD r; if(!ioctl(h,IOCTL_IT8888_BRIDGE_IOWIN,&w,sizeof(w),&w,sizeof(w),&r)) return 1;
+    printf("bridge-iowin %u:%u.%u 0x%04x-0x%04x\n", w.Bus,w.Device,w.Function,w.Base,w.Limit);
+    printf("  command old=0x%04x new=0x%04x\n", w.OldCommand,w.NewCommand);
+    printf("  io base  old=0x%02x upper=0x%04x  new=0x%02x upper=0x%04x\n", w.OldIoBase,w.OldIoBaseUpper,w.NewIoBase,w.NewIoBaseUpper);
+    printf("  io limit old=0x%02x upper=0x%04x  new=0x%02x upper=0x%04x\n", w.OldIoLimit,w.OldIoLimitUpper,w.NewIoLimit,w.NewIoLimitUpper);
+    printf("  status=%u\n", w.Status);
+    return 0;
+}static int cmd_simple(HANDLE h, DWORD code) {
   DWORD r;
   return ioctl(h, code, NULL, 0, NULL, 0, &r) ? 0 : 1;
 }
@@ -638,7 +671,7 @@ int main(int ac, char **av) {
   if (IS("info"))
     rc = cmd_info(h);
   else if (IS("dumpcfg"))
-    rc = cmd_dumpcfg(h); else if (IS("pci-dumpcfg")) rc = cmd_pci_dumpcfg(h, ac, av);
+    rc = cmd_dumpcfg(h); else if (IS("pci-dumpcfg")) rc = cmd_pci_dumpcfg(h, ac, av); else if (IS("pci-cfgread")) rc = cmd_pci_cfgread(h, ac, av); else if (IS("pci-cfgwrite")) rc = cmd_pci_cfgwrite(h, ac, av); else if (IS("bridge-iowin")) rc = cmd_bridge_iowin(h, ac, av);
   else if (IS("init"))
     rc = cmd_init(h);
   else if (IS("cfgread"))
@@ -696,6 +729,7 @@ int main(int ac, char **av) {
   CloseHandle(h);
   return rc;
 }
+
 
 
 

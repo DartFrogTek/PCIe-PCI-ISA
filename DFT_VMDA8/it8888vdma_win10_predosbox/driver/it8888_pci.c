@@ -200,3 +200,165 @@ NTSTATUS It8888PciDumpCfgBdf(PIT8888_PCI_CFG_DUMP dump)
     return STATUS_SUCCESS;
 }
 
+static NTSTATUS It8888PciMakeSlot(UCHAR device, UCHAR function, PPCI_SLOT_NUMBER slot)
+{
+    if (device > 31 || function > 7) return STATUS_INVALID_PARAMETER;
+    RtlZeroMemory(slot, sizeof(*slot));
+    slot->u.bits.DeviceNumber = device;
+    slot->u.bits.FunctionNumber = function;
+    return STATUS_SUCCESS;
+}
+
+
+static ULONG It8888PciCfgAddress(UCHAR bus, UCHAR device, UCHAR function, UCHAR offset)
+{
+    return 0x80000000u |
+           ((ULONG)bus << 16) |
+           ((ULONG)device << 11) |
+           ((ULONG)function << 8) |
+           ((ULONG)offset & 0xFCu);
+}
+
+static ULONG It8888PciCfgRawRead(UCHAR bus, UCHAR device, UCHAR function, UCHAR offset, UCHAR width)
+{
+    ULONG address = It8888PciCfgAddress(bus, device, function, offset);
+    UCHAR shift = (UCHAR)((offset & 3u) * 8u);
+    ULONG dwordValue;
+
+    WRITE_PORT_ULONG((PULONG)(ULONG_PTR)0xCF8, address);
+    dwordValue = READ_PORT_ULONG((PULONG)(ULONG_PTR)0xCFC);
+
+    if (width == 1)
+        return (dwordValue >> shift) & 0xFFu;
+    if (width == 2)
+        return (dwordValue >> shift) & 0xFFFFu;
+    return dwordValue;
+}
+
+static VOID It8888PciCfgRawWrite(UCHAR bus, UCHAR device, UCHAR function, UCHAR offset, UCHAR width, ULONG value)
+{
+    ULONG address = It8888PciCfgAddress(bus, device, function, offset);
+    UCHAR shift = (UCHAR)((offset & 3u) * 8u);
+    ULONG dwordValue;
+    ULONG mask;
+
+    WRITE_PORT_ULONG((PULONG)(ULONG_PTR)0xCF8, address);
+    dwordValue = READ_PORT_ULONG((PULONG)(ULONG_PTR)0xCFC);
+
+    if (width == 1) {
+        mask = 0xFFu << shift;
+        dwordValue = (dwordValue & ~mask) | ((value & 0xFFu) << shift);
+    } else if (width == 2) {
+        mask = 0xFFFFu << shift;
+        dwordValue = (dwordValue & ~mask) | ((value & 0xFFFFu) << shift);
+    } else {
+        dwordValue = value;
+    }
+
+    WRITE_PORT_ULONG((PULONG)(ULONG_PTR)0xCF8, address);
+    WRITE_PORT_ULONG((PULONG)(ULONG_PTR)0xCFC, dwordValue);
+}
+NTSTATUS It8888PciCfgRwBdf(PIT8888_PCI_CFG_RW rw)
+{
+    if (rw->Device > 31 || rw->Function > 7)
+        return STATUS_INVALID_PARAMETER;
+
+    if (!(rw->Width == 1 || rw->Width == 2 || rw->Width == 4))
+        return STATUS_INVALID_PARAMETER;
+
+    if ((ULONG)rw->Offset + rw->Width > 256)
+        return STATUS_INVALID_PARAMETER;
+
+    if ((rw->Width == 2 && (rw->Offset & 1)) || (rw->Width == 4 && (rw->Offset & 3)))
+        return STATUS_INVALID_PARAMETER;
+
+    if (rw->Write) {
+        It8888PciCfgRawWrite(rw->Bus, rw->Device, rw->Function, rw->Offset, rw->Width, rw->Value);
+    } else {
+        rw->Value = It8888PciCfgRawRead(rw->Bus, rw->Device, rw->Function, rw->Offset, rw->Width);
+        if (rw->Width == 1)
+            rw->Value &= 0xFFu;
+        else if (rw->Width == 2)
+            rw->Value &= 0xFFFFu;
+    }
+
+    rw->Bytes = rw->Width;
+    rw->Status = 0xCF8;
+    return STATUS_SUCCESS;
+}
+
+static NTSTATUS It8888PciCfgReadSimple(UCHAR bus, UCHAR dev, UCHAR fn, UCHAR off, UCHAR width, PULONG value)
+{
+    IT8888_PCI_CFG_RW rw; RtlZeroMemory(&rw, sizeof(rw));
+    rw.Bus=bus; rw.Device=dev; rw.Function=fn; rw.Offset=off; rw.Width=width;
+    NTSTATUS st = It8888PciCfgRwBdf(&rw);
+    if (NT_SUCCESS(st)) *value = rw.Value;
+    return st;
+}
+
+static NTSTATUS It8888PciCfgWriteSimple(UCHAR bus, UCHAR dev, UCHAR fn, UCHAR off, UCHAR width, ULONG value)
+{
+    IT8888_PCI_CFG_RW rw; RtlZeroMemory(&rw, sizeof(rw));
+    rw.Bus=bus; rw.Device=dev; rw.Function=fn; rw.Offset=off; rw.Width=width; rw.Write=1; rw.Value=value;
+    return It8888PciCfgRwBdf(&rw);
+}
+
+NTSTATUS It8888BridgeSetIoWindow(PIT8888_BRIDGE_IOWIN win)
+{
+    ULONG oldCmd = 0;
+    ULONG oldBase = 0;
+    ULONG oldLimit = 0;
+    ULONG oldBaseUpper = 0;
+    ULONG oldLimitUpper = 0;
+
+    if ((win->Base & 0xFFFu) != 0)
+        return STATUS_INVALID_PARAMETER;
+
+    if ((win->Limit & 0xFFFu) != 0xFFFu)
+        return STATUS_INVALID_PARAMETER;
+
+    if (win->Base > win->Limit)
+        return STATUS_INVALID_PARAMETER;
+
+    if (win->Base > 0xFFFFu || win->Limit > 0xFFFFu)
+        return STATUS_INVALID_PARAMETER;
+
+    oldCmd        = It8888PciCfgRawRead(win->Bus, win->Device, win->Function, 0x04, 2);
+    oldBase       = It8888PciCfgRawRead(win->Bus, win->Device, win->Function, 0x1C, 1);
+    oldLimit      = It8888PciCfgRawRead(win->Bus, win->Device, win->Function, 0x1D, 1);
+    oldBaseUpper  = It8888PciCfgRawRead(win->Bus, win->Device, win->Function, 0x30, 2);
+    oldLimitUpper = It8888PciCfgRawRead(win->Bus, win->Device, win->Function, 0x32, 2);
+
+    win->OldCommand = (USHORT)oldCmd;
+    win->OldIoBase = (UCHAR)oldBase;
+    win->OldIoLimit = (UCHAR)oldLimit;
+    win->OldIoBaseUpper = (USHORT)oldBaseUpper;
+    win->OldIoLimitUpper = (USHORT)oldLimitUpper;
+
+    win->NewIoBase = (UCHAR)((win->Base >> 8) & 0xF0u);
+    win->NewIoLimit = (UCHAR)((win->Limit >> 8) & 0xF0u);
+    win->NewIoBaseUpper = (USHORT)((win->Base >> 16) & 0xFFFFu);
+    win->NewIoLimitUpper = (USHORT)((win->Limit >> 16) & 0xFFFFu);
+
+    /*
+        Disable I/O forwarding, program window, then re-enable I/O forwarding.
+        For 0x8000-0x8FFF this writes:
+          0x1C = 0x80
+          0x1D = 0x80
+          0x30 = 0
+          0x32 = 0
+          command |= 0x0001
+    */
+    It8888PciCfgRawWrite(win->Bus, win->Device, win->Function, 0x04, 2, win->OldCommand & ~0x0001u);
+    It8888PciCfgRawWrite(win->Bus, win->Device, win->Function, 0x30, 2, win->NewIoBaseUpper);
+    It8888PciCfgRawWrite(win->Bus, win->Device, win->Function, 0x32, 2, win->NewIoLimitUpper);
+    It8888PciCfgRawWrite(win->Bus, win->Device, win->Function, 0x1C, 1, win->NewIoBase);
+    It8888PciCfgRawWrite(win->Bus, win->Device, win->Function, 0x1D, 1, win->NewIoLimit);
+
+    win->NewCommand = (USHORT)(win->OldCommand | 0x0001u);
+    It8888PciCfgRawWrite(win->Bus, win->Device, win->Function, 0x04, 2, win->NewCommand);
+
+    win->Status = 0xCF8;
+    return STATUS_SUCCESS;
+}
+

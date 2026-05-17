@@ -6,22 +6,21 @@ static BOOLEAN It8888PortAllowed(USHORT port, UCHAR width)
         return FALSE;
 
     /*
-        Diagnostic allowlist.
-
-        Keep this deliberately narrow. These are the ranges currently decoded
-        or useful for PicoGUS/SB/GUS/MPU/OPL probing through IT8888.
+        Diagnostic allowlist. Keep narrow, but include the whole high alias
+        bridge test window.
     */
 
+    if (port >= 0x8000 && port <= 0x8FFF) return TRUE; /* high alias / bridge window */
     if (port >= 0x8380 && port <= 0x83FF) return TRUE; /* IT8888 DDMA windows */
 
-    if (port >= 0x220 && port <= 0x22F) return TRUE;  /* SB base 220 */
-    if (port >= 0x240 && port <= 0x24F) return TRUE;  /* alternate SB base */
-    if (port >= 0x260 && port <= 0x26F) return TRUE;  /* alternate SB base */
-    if (port >= 0x280 && port <= 0x28F) return TRUE;  /* alternate SB base */
+    if (port >= 0x220 && port <= 0x22F) return TRUE;   /* SB 220 */
+    if (port >= 0x240 && port <= 0x24F) return TRUE;   /* SB alt */
+    if (port >= 0x260 && port <= 0x26F) return TRUE;   /* SB alt */
+    if (port >= 0x280 && port <= 0x28F) return TRUE;   /* SB alt */
 
-    if (port >= 0x300 && port <= 0x31F) return TRUE;  /* GUS / ISA diagnostics */
-    if (port >= 0x330 && port <= 0x337) return TRUE;  /* MPU-401 */
-    if (port >= 0x388 && port <= 0x38B) return TRUE;  /* OPL */
+    if (port >= 0x300 && port <= 0x31F) return TRUE;   /* GUS-ish */
+    if (port >= 0x330 && port <= 0x337) return TRUE;   /* MPU-401 */
+    if (port >= 0x388 && port <= 0x38B) return TRUE;   /* OPL */
 
     return FALSE;
 }
@@ -60,4 +59,6 @@ NTSTATUS It8888PortWrite(PDEVICE_CONTEXT ctx, USHORT port, UCHAR width,
               0);
   return STATUS_SUCCESS;
 }
+
+
 

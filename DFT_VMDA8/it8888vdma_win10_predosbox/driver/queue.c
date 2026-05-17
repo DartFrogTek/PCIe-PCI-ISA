@@ -34,7 +34,22 @@ VOID It8888EvtIoDeviceControl(WDFQUEUE Queue, WDFREQUEST Request,
   {
     switch (IoControlCode)
     {
-    case IOCTL_IT8888_PCI_DUMPCFG: {
+    case IOCTL_IT8888_PCI_CFGRW: {
+    GET_IN(IT8888_PCI_CFG_RW, in);
+    GET_OUT(IT8888_PCI_CFG_RW, out);
+    *out = *in;
+    status = It8888PciCfgRwBdf(out);
+    if (NT_SUCCESS(status)) COMPLETE(sizeof(*out));
+    break;
+}
+case IOCTL_IT8888_BRIDGE_IOWIN: {
+    GET_IN(IT8888_BRIDGE_IOWIN, in);
+    GET_OUT(IT8888_BRIDGE_IOWIN, out);
+    *out = *in;
+    status = It8888BridgeSetIoWindow(out);
+    if (NT_SUCCESS(status)) COMPLETE(sizeof(*out));
+    break;
+} case IOCTL_IT8888_PCI_DUMPCFG: {
     GET_IN(IT8888_PCI_CFG_DUMP, in);
     GET_OUT(IT8888_PCI_CFG_DUMP, out);
     *out = *in;
@@ -284,6 +299,7 @@ case IOCTL_IT8888_DDMA_PROBE: {
 
   WdfRequestCompleteWithInformation(Request, status, info);
 }
+
 
 
 
