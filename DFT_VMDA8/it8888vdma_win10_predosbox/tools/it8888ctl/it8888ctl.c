@@ -4951,6 +4951,177 @@ static int cmd_gus_wav_play64_clean_safe(HANDLE h, int ac, char **av)
 
     return 0;
 }
+
+/* ------------------------------------------------------------------------- */
+/* GUS/PicoGUS DRAM high-address latch mode sweep                             */
+/* ------------------------------------------------------------------------- */
+
+static int gus_global_write16_raw_hi_sweep(HANDLE h, uint16_t base, uint8_t reg, uint16_t value)
+{
+    if (port_out8(h, (uint16_t)(base + 0x103), reg)) return 1;
+    if (port_out8(h, (uint16_t)(base + 0x104), (uint8_t)(value & 0xff))) return 1;
+    if (port_out8(h, (uint16_t)(base + 0x105), (uint8_t)((value >> 8) & 0xff))) return 1;
+    return 0;
+}
+
+static int gus_global_write8_low_raw_hi_sweep(HANDLE h, uint16_t base, uint8_t reg, uint8_t value)
+{
+    if (port_out8(h, (uint16_t)(base + 0x103), reg)) return 1;
+    if (port_out8(h, (uint16_t)(base + 0x104), value)) return 1;
+    return 0;
+}
+
+static int gus_global_write8_high_raw_hi_sweep(HANDLE h, uint16_t base, uint8_t reg, uint8_t value)
+{
+    if (port_out8(h, (uint16_t)(base + 0x103), reg)) return 1;
+    if (port_out8(h, (uint16_t)(base + 0x105), value)) return 1;
+    return 0;
+}
+
+/*
+    Mode guesses for programming DRAM address.
+
+    Known low-address mechanism:
+      reg 0x43 = low 16 address bits.
+
+    The unknown part is how/if high address bits are latched for PicoGUS.
+*/
+static int gus_dram_set_addr_mode_hi_sweep(HANDLE h, uint16_t base, uint32_t addr, int mode)
+{
+    uint16_t lo16 = (uint16_t)(addr & 0xffffu);
+    uint8_t hi8 = (uint8_t)((addr >> 16) & 0xffu);
+    uint16_t hi16 = (uint16_t)hi8;
+
+    switch (mode) {
+    default:
+    case 0:
+        /* old/current assumption: 0x43 low16 then 0x44 low byte */
+        if (gus_global_write16_raw_hi_sweep(h, base, 0x43, lo16)) return 1;
+        if (gus_global_write16_raw_hi_sweep(h, base, 0x44, hi16)) return 1;
+        break;
+
+    case 1:
+        /* high first, then low */
+        if (gus_global_write16_raw_hi_sweep(h, base, 0x44, hi16)) return 1;
+        if (gus_global_write16_raw_hi_sweep(h, base, 0x43, lo16)) return 1;
+        break;
+
+    case 2:
+        /* low, high, reselect low */
+        if (gus_global_write16_raw_hi_sweep(h, base, 0x43, lo16)) return 1;
+        if (gus_global_write16_raw_hi_sweep(h, base, 0x44, hi16)) return 1;
+        if (port_out8(h, (uint16_t)(base + 0x103), 0x43)) return 1;
+        break;
+
+    case 3:
+        /* write high addr to high byte of 0x44 */
+        if (gus_global_write16_raw_hi_sweep(h, base, 0x43, lo16)) return 1;
+        if (gus_global_write16_raw_hi_sweep(h, base, 0x44, (uint16_t)(hi8 << 8))) return 1;
+        break;
+
+    case 4:
+        /* high first to high byte of 0x44, then low */
+        if (gus_global_write16_raw_hi_sweep(h, base, 0x44, (uint16_t)(hi8 << 8))) return 1;
+        if (gus_global_write16_raw_hi_sweep(h, base, 0x43, lo16)) return 1;
+        break;
+
+    case 5:
+        /* byte write low side of 0x44 only */
+        if (gus_global_write16_raw_hi_sweep(h, base, 0x43, lo16)) return 1;
+        if (gus_global_write8_low_raw_hi_sweep(h, base, 0x44, hi8)) return 1;
+        break;
+
+    case 6:
+        /* byte write high side of 0x44 only */
+        if (gus_global_write16_raw_hi_sweep(h, base, 0x43, lo16)) return 1;
+        if (gus_global_write8_high_raw_hi_sweep(h, base, 0x44, hi8)) return 1;
+        break;
+
+    case 7:
+        /* write high bits to 0x45 low byte, because some docs/code name 0x43/0x44/0x45 pairs differently */
+        if (gus_global_write16_raw_hi_sweep(h, base, 0x43, lo16)) return 1;
+        if (gus_global_write8_low_raw_hi_sweep(h, base, 0x45, hi8)) return 1;
+        break;
+
+    case 8:
+        /* high first on 0x45, then low */
+        if (gus_global_write8_low_raw_hi_sweep(h, base, 0x45, hi8)) return 1;
+        if (gus_global_write16_raw_hi_sweep(h, base, 0x43, lo16)) return 1;
+        break;
+
+    case 9:
+        /*
+            Some emulators/firmware may treat reg 0x44 as a full 16-bit high/control
+            latch, but only after the low address is written to data port once.
+        */
+        if (gus_global_write16_raw_hi_sweep(h, base, 0x43, lo16)) return 1;
+        if (port_out8(h, (uint16_t)(base + 0x107), 0x00)) return 1;
+        if (gus_global_write16_raw_hi_sweep(h, base, 0x44, hi16)) return 1;
+        if (gus_global_write16_raw_hi_sweep(h, base, 0x43, lo16)) return 1;
+        break;
+    }
+
+    return 0;
+}
+
+static int gus_dram_write_pattern_mode_hi_sweep(HANDLE h, uint16_t base, int mode, uint32_t addr, uint8_t value, uint32_t count)
+{
+    for (uint32_t i = 0; i < count; i++) {
+        if (gus_dram_set_addr_mode_hi_sweep(h, base, addr + i, mode)) return 1;
+        if (port_out8(h, (uint16_t)(base + 0x107), value)) return 1;
+    }
+    return 0;
+}
+
+static int gus_dram_dump_inline_mode_hi_sweep(HANDLE h, uint16_t base, int mode, uint32_t addr, uint32_t count)
+{
+    printf("%06x:", addr);
+    for (uint32_t i = 0; i < count; i++) {
+        uint8_t v = 0;
+        if (gus_dram_set_addr_mode_hi_sweep(h, base, addr + i, mode)) return 1;
+        if (port_in8(h, (uint16_t)(base + 0x107), &v)) return 1;
+        printf(" %02x", v);
+    }
+    printf("\n");
+    return 0;
+}
+
+static int cmd_gus_dram_hiaddr_mode_sweep_safe(HANDLE h, int ac, char **av)
+{
+    if (ac < 3) {
+        puts("gus-dram-hiaddr-mode-sweep-safe <base>");
+        return 2;
+    }
+
+    uint16_t base = (uint16_t)u32(av[2]);
+
+    puts("GUS/PicoGUS DRAM high-address mode sweep");
+    puts("Success pattern should be:");
+    puts("  000000: 11 ...");
+    puts("  008000: 22 ...");
+    puts("  010000: 33 ...");
+    puts("  018000: 44 ...");
+    puts("  020000: 55 ...");
+
+    for (int mode = 0; mode <= 9; mode++) {
+        printf("\n================ MODE %d ================\n", mode);
+
+        if (gus_dram_write_pattern_mode_hi_sweep(h, base, mode, 0x00000, 0x11, 32)) return 1;
+        if (gus_dram_write_pattern_mode_hi_sweep(h, base, mode, 0x08000, 0x22, 32)) return 1;
+        if (gus_dram_write_pattern_mode_hi_sweep(h, base, mode, 0x10000, 0x33, 32)) return 1;
+        if (gus_dram_write_pattern_mode_hi_sweep(h, base, mode, 0x18000, 0x44, 32)) return 1;
+        if (gus_dram_write_pattern_mode_hi_sweep(h, base, mode, 0x20000, 0x55, 32)) return 1;
+
+        if (gus_dram_dump_inline_mode_hi_sweep(h, base, mode, 0x00000, 16)) return 1;
+        if (gus_dram_dump_inline_mode_hi_sweep(h, base, mode, 0x08000, 16)) return 1;
+        if (gus_dram_dump_inline_mode_hi_sweep(h, base, mode, 0x10000, 16)) return 1;
+        if (gus_dram_dump_inline_mode_hi_sweep(h, base, mode, 0x18000, 16)) return 1;
+        if (gus_dram_dump_inline_mode_hi_sweep(h, base, mode, 0x20000, 16)) return 1;
+    }
+
+    puts("\nmode sweep done.");
+    return 0;
+}
 static int cmd_simple(HANDLE h, DWORD code) {
   DWORD r;
   return ioctl(h, code, NULL, 0, NULL, 0, &r) ? 0 : 1;
@@ -5211,13 +5382,14 @@ else if (IS("gus-dram-unsigned-to-signed")) rc = cmd_gus_dram_unsigned_to_signed
 else if (IS("gus-gen-wave-addrmode-test-safe")) rc = cmd_gus_gen_wave_addrmode_test_safe(h, ac, av);
 else if (IS("gus-addrmode-sweep-safe")) rc = cmd_gus_addrmode_sweep_safe(h, ac, av);else if (IS("gus-gen-wave-addrmode-test-safe")) rc = cmd_gus_gen_wave_addrmode_test_safe(h, ac, av);
 else if (IS("gus-addrmode-sweep-safe")) rc = cmd_gus_addrmode_sweep_safe(h, ac, av);else if (IS("gus-const-test-safe")) rc = cmd_gus_const_test_safe(h, ac, av);
-else if (IS("gus-gen-wave-period-test-safe")) rc = cmd_gus_gen_wave_period_test_safe(h, ac, av);else if (IS("gus-wav-play-guarded-poll-safe")) rc = cmd_gus_wav_play_guarded_poll_safe(h, ac, av);else if (IS("gus-wav-play-calibrated-safe")) rc = cmd_gus_wav_play_calibrated_safe(h, ac, av);else if (IS("gus-output-sweep-safe")) rc = cmd_gus_output_sweep_safe(h, ac, av);else if (IS("gus-wav-play-loud-safe")) rc = cmd_gus_wav_play_loud_safe(h, ac, av);else if (IS("gus-wav-play-oldloud-loop-safe")) rc = cmd_gus_wav_play_oldloud_loop_safe(h, ac, av);else if (IS("gus-gf1addr-square-test-safe")) rc = cmd_gus_gf1addr_square_test_safe(h, ac, av);else if (IS("gus-wav-play-gf1addr-safe")) rc = cmd_gus_wav_play_gf1addr_safe(h, ac, av);else if (IS("gus-dram-hiaddr-test-safe")) rc = cmd_gus_dram_hiaddr_test_safe(h, ac, av);else if (IS("gus-wav-play64-gf1addr-safe")) rc = cmd_gus_wav_play64_gf1addr_safe(h, ac, av);else if (IS("gus-wav-play64-audition-safe")) rc = cmd_gus_wav_play64_audition_safe(h, ac, av);else if (IS("gus-wav-play64-quality-matrix-safe")) rc = cmd_gus_wav_play64_quality_matrix_safe(h, ac, av);else if (IS("gus-wav-play64-enc-audition-safe")) rc = cmd_gus_wav_play64_enc_audition_safe(h, ac, av);else if (IS("gus-wav-play64-clean-safe")) rc = cmd_gus_wav_play64_clean_safe(h, ac, av);else {
+else if (IS("gus-gen-wave-period-test-safe")) rc = cmd_gus_gen_wave_period_test_safe(h, ac, av);else if (IS("gus-wav-play-guarded-poll-safe")) rc = cmd_gus_wav_play_guarded_poll_safe(h, ac, av);else if (IS("gus-wav-play-calibrated-safe")) rc = cmd_gus_wav_play_calibrated_safe(h, ac, av);else if (IS("gus-output-sweep-safe")) rc = cmd_gus_output_sweep_safe(h, ac, av);else if (IS("gus-wav-play-loud-safe")) rc = cmd_gus_wav_play_loud_safe(h, ac, av);else if (IS("gus-wav-play-oldloud-loop-safe")) rc = cmd_gus_wav_play_oldloud_loop_safe(h, ac, av);else if (IS("gus-gf1addr-square-test-safe")) rc = cmd_gus_gf1addr_square_test_safe(h, ac, av);else if (IS("gus-wav-play-gf1addr-safe")) rc = cmd_gus_wav_play_gf1addr_safe(h, ac, av);else if (IS("gus-dram-hiaddr-test-safe")) rc = cmd_gus_dram_hiaddr_test_safe(h, ac, av);else if (IS("gus-wav-play64-gf1addr-safe")) rc = cmd_gus_wav_play64_gf1addr_safe(h, ac, av);else if (IS("gus-wav-play64-audition-safe")) rc = cmd_gus_wav_play64_audition_safe(h, ac, av);else if (IS("gus-wav-play64-quality-matrix-safe")) rc = cmd_gus_wav_play64_quality_matrix_safe(h, ac, av);else if (IS("gus-wav-play64-enc-audition-safe")) rc = cmd_gus_wav_play64_enc_audition_safe(h, ac, av);else if (IS("gus-wav-play64-clean-safe")) rc = cmd_gus_wav_play64_clean_safe(h, ac, av);else if (IS("gus-dram-hiaddr-mode-sweep-safe")) rc = cmd_gus_dram_hiaddr_mode_sweep_safe(h, ac, av);else {
     usage();
     rc = 2;
   }
   CloseHandle(h);
   return rc;
 }
+
 
 
 
