@@ -1,0 +1,17 @@
+powershell -ExecutionPolicy Bypass -File .\restore_8888_8893_min.ps1
+.\dist\Debug_x64\it8888ctl.exe init
+
+.\dist\Debug_x64\it8888ctl.exe bridge-iowin 0 28 3 0x8000 0x8fff
+.\dist\Debug_x64\it8888ctl.exe bridge-iowin 3 0 0 0x8000 0x8fff
+.\dist\Debug_x64\it8888ctl.exe cfgwrite 0x5C 4 0xe3008340
+.\dist\Debug_x64\it8888ctl.exe cfgwrite 0x60 4 0xe2008240
+
+# REQUIRED after reboot/reinstall
+.\dist\Debug_x64\it8888ctl.exe dma-alloc 65536
+.\dist\Debug_x64\it8888ctl.exe dma-fill 0 4096 0x80
+.\dist\Debug_x64\it8888ctl.exe dma-info
+
+.\dist\Debug_x64\it8888ctl.exe ddma-clear
+.\dist\Debug_x64\it8888ctl.exe trace-clear
+
+.\dist\Debug_x64\it8888ctl.exe ddma-arm 1 2 0 4096 0x2C0
