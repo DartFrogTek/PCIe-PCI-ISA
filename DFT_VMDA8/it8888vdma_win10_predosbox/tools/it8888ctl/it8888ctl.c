@@ -5265,6 +5265,466 @@ static int cmd_gus_wav_play_full_gf1_clean_safe(HANDLE h, int ac, char **av)
 
     return 0;
 }
+
+/* ------------------------------------------------------------------------- */
+/* Full WAV upload + verify, no 262144 clamp                                  */
+/* ------------------------------------------------------------------------- */
+
+static uint8_t gus_clip_u8_fullverify(int v)
+{
+    if (v < 0) return 0;
+    if (v > 255) return 255;
+    return (uint8_t)v;
+}
+
+static uint8_t gus_apply_gain_u8_fullverify(uint8_t u, uint32_t gain_x100)
+{
+    int centered = (int)u - 128;
+    int scaled = (centered * (int)gain_x100) / 100;
+    return gus_clip_u8_fullverify(128 + scaled);
+}
+
+static uint32_t gus_hash32_fullverify(const uint8_t *p, uint32_t n)
+{
+    uint32_t h = 2166136261u;
+    for (uint32_t i = 0; i < n; i++) {
+        h ^= p[i];
+        h *= 16777619u;
+    }
+    return h;
+}
+
+static int gus_wav_convert_window_to_xor80_noclamp_fullverify(
+    const char *path,
+    const GUS_WAV_INFO *wi,
+    uint32_t sample_offset,
+    uint32_t sample_count,
+    uint32_t gain_x100,
+    uint8_t **out_buf,
+    uint32_t *out_n)
+{
+    FILE *f = NULL;
+    uint8_t *buf = NULL;
+    uint32_t bytes_per_sample = 0;
+    uint32_t bytes_per_frame = 0;
+    uint32_t total_frames = 0;
+    uint32_t n = 0;
+
+    *out_buf = NULL;
+    *out_n = 0;
+
+    bytes_per_sample = (uint32_t)(wi->bits_per_sample / 8);
+    if (bytes_per_sample == 0) bytes_per_sample = 1;
+    bytes_per_frame = (uint32_t)wi->channels * bytes_per_sample;
+    if (bytes_per_frame == 0) bytes_per_frame = 1;
+
+    total_frames = (uint32_t)(wi->data_size / bytes_per_frame);
+
+    if (sample_offset >= total_frames) {
+        printf("wav-noclamp: sample_offset %u >= frames %u\n", sample_offset, total_frames);
+        return 1;
+    }
+
+    if (sample_count == 0 || sample_count > total_frames - sample_offset) {
+        sample_count = total_frames - sample_offset;
+    }
+
+    if (sample_count == 0) {
+        puts("wav-noclamp: no samples requested");
+        return 1;
+    }
+
+    if (sample_count > (1024u * 1024u)) {
+        printf("wav-noclamp: sample_count %u too large for this safety command; clamp manually <=1048576\n", sample_count);
+        return 1;
+    }
+
+    buf = (uint8_t *)malloc(sample_count);
+    if (!buf) {
+        puts("wav-noclamp: malloc failed");
+        return 1;
+    }
+
+    f = fopen(path, "rb");
+    if (!f) {
+        free(buf);
+        printf("wav-noclamp: open failed: %s\n", path);
+        return 1;
+    }
+
+    if (fseek(f, (long)(wi->data_offset + (uint64_t)sample_offset * bytes_per_frame), SEEK_SET)) {
+        fclose(f);
+        free(buf);
+        puts("wav-noclamp: seek failed");
+        return 1;
+    }
+
+    for (n = 0; n < sample_count; n++) {
+        int mono = 0;
+        uint8_t u8 = 0x80;
+
+        if (wi->bits_per_sample == 8) {
+            int accum = 0;
+            for (uint16_t ch = 0; ch < wi->channels; ch++) {
+                int c = fgetc(f);
+                if (c < 0) goto done_reading_fullverify;
+                accum += c & 0xff;
+            }
+            mono = accum / (int)wi->channels;
+            u8 = (uint8_t)mono;
+        } else if (wi->bits_per_sample == 16) {
+            int accum = 0;
+            for (uint16_t ch = 0; ch < wi->channels; ch++) {
+                int lo = fgetc(f);
+                int hi = fgetc(f);
+                int16_t s;
+                if (lo < 0 || hi < 0) goto done_reading_fullverify;
+                s = (int16_t)((lo & 0xff) | ((hi & 0xff) << 8));
+                accum += (int)s;
+            }
+            mono = accum / (int)wi->channels;
+            u8 = gus_clip_u8_fullverify(128 + (mono / 256));
+        } else {
+            printf("wav-noclamp: unsupported bits_per_sample=%u\n", wi->bits_per_sample);
+            fclose(f);
+            free(buf);
+            return 1;
+        }
+
+        u8 = gus_apply_gain_u8_fullverify(u8, gain_x100);
+
+        /* Critical clean-path encoding: unsigned WAV -> signed-style GF1/PicoGUS */
+        buf[n] = (uint8_t)(u8 ^ 0x80);
+    }
+
+done_reading_fullverify:
+    fclose(f);
+
+    if (n < 64) {
+        free(buf);
+        printf("wav-noclamp: too few samples read: %u\n", n);
+        return 1;
+    }
+
+    *out_buf = buf;
+    *out_n = n;
+    return 0;
+}
+
+static int gus_read_dram_bytes_fullverify(HANDLE h, uint16_t base, uint32_t addr, uint8_t *dst, uint32_t n)
+{
+    for (uint32_t i = 0; i < n; i++) {
+        if (gus_dram_set_addr(h, base, addr + i)) return 1;
+        if (port_in8(h, (uint16_t)(base + 0x107), &dst[i])) return 1;
+    }
+    return 0;
+}
+
+static int gus_verify_dram_pages_fullverify(HANDLE h, uint16_t base, uint32_t dram_addr, const uint8_t *buf, uint32_t n)
+{
+    uint8_t tmp[4096];
+    uint32_t pos = 0;
+    uint32_t total_bad = 0;
+    uint32_t page_no = 0;
+
+    puts("verify: per-64KiB page, reading first/mid/last 4096-byte windows when present");
+
+    while (pos < n) {
+        uint32_t page_left = n - pos;
+        uint32_t page_n = page_left > 65536u ? 65536u : page_left;
+        uint32_t checks[3];
+        uint32_t check_count = 0;
+
+        checks[check_count++] = 0;
+        if (page_n > 8192) checks[check_count++] = page_n / 2;
+        if (page_n > 4096) checks[check_count++] = page_n - 4096;
+
+        printf("  page %u dram=0x%06x bytes=%u\n", page_no, dram_addr + pos, page_n);
+
+        for (uint32_t ci = 0; ci < check_count; ci++) {
+            uint32_t off = checks[ci];
+            uint32_t cn = page_n - off;
+            uint32_t bad = 0;
+            if (cn > sizeof(tmp)) cn = sizeof(tmp);
+
+            if (gus_read_dram_bytes_fullverify(h, base, dram_addr + pos + off, tmp, cn)) return 1;
+
+            for (uint32_t i = 0; i < cn; i++) {
+                if (tmp[i] != buf[pos + off + i]) {
+                    bad++;
+                    if (bad <= 4) {
+                        printf("    mismatch +0x%05x got=%02x exp=%02x\n",
+                               off + i, tmp[i], buf[pos + off + i]);
+                    }
+                }
+            }
+
+            printf("    win +0x%05x len=%u exp_hash=%08x got_hash=%08x bad=%u\n",
+                   off, cn,
+                   gus_hash32_fullverify(buf + pos + off, cn),
+                   gus_hash32_fullverify(tmp, cn),
+                   bad);
+
+            total_bad += bad;
+        }
+
+        pos += page_n;
+        page_no++;
+    }
+
+    printf("verify total_bad=%u\n", total_bad);
+    return total_bad ? 2 : 0;
+}
+
+static int gus_guard_fill_range_fullverify(HANDLE h, uint16_t base, uint32_t addr, uint32_t count, uint8_t value)
+{
+    for (uint32_t i = 0; i < count; i++) {
+        if (gus_dram_set_addr(h, base, addr + i)) return 1;
+        if (port_out8(h, (uint16_t)(base + 0x107), value)) return 1;
+    }
+    return 0;
+}
+
+static int cmd_gus_wav_upload_full_verify_safe(HANDLE h, int ac, char **av)
+{
+    if (ac < 4) {
+        puts("gus-wav-upload-full-verify-safe <base> <wavfile> [dram_addr] [sample_offset] [sample_count] [gain_x100] [freq] [play]");
+        puts("default: dram=0x10000 offset=0 count=whole remaining gain=400 freq=0x03c0 play=1");
+        puts("no 262144 conversion clamp; converts PCM to xor80, uploads, verifies sampled page windows, optionally plays");
+        return 2;
+    }
+
+    uint16_t base = (uint16_t)u32(av[2]);
+    const char *path = av[3];
+    uint32_t dram_addr     = (ac > 4) ? u32(av[4]) : 0x10000;
+    uint32_t sample_offset = (ac > 5) ? u32(av[5]) : 0;
+    uint32_t sample_count  = (ac > 6) ? u32(av[6]) : 0;
+    uint32_t gain_x100     = (ac > 7) ? u32(av[7]) : 400;
+    uint16_t freq          = (ac > 8) ? (uint16_t)u32(av[8]) : 0x03c0;
+    int play               = (ac > 9) ? (int)u32(av[9]) : 1;
+
+    GUS_WAV_INFO wi;
+    uint8_t *buf = NULL;
+    uint32_t n = 0;
+    int vrc = 0;
+
+    if (wav_read_info(path, &wi)) return 1;
+
+    if (gus_wav_convert_window_to_xor80_noclamp_fullverify(path, &wi, sample_offset, sample_count, gain_x100, &buf, &n)) {
+        return 1;
+    }
+
+    printf("gus-wav-upload-full-verify-safe file=%s src_offset=%u dram=0x%06x samples=%u src_rate=%u bits=%u ch=%u gain=%u freq=0x%04x play=%d encoding=xor80\n",
+           path, sample_offset, dram_addr, n, wi.sample_rate, wi.bits_per_sample, wi.channels, gain_x100, freq, play);
+
+    gus_print_u8_preview("encoded xor80 first bytes:", buf, n);
+    wav_analyze_u8_buffer(buf, n);
+
+    {
+        uint32_t guard_start = (dram_addr >= 4096) ? dram_addr - 4096 : 0;
+        uint32_t guard_count = n + 8192;
+        puts("guard-fill around target with 0x00");
+        if (gus_guard_fill_range_fullverify(h, base, guard_start, guard_count, 0x00)) {
+            free(buf);
+            return 1;
+        }
+    }
+
+    if (gus_upload_u8_buffer_safe(h, base, dram_addr, buf, n)) {
+        free(buf);
+        return 1;
+    }
+
+    vrc = gus_verify_dram_pages_fullverify(h, base, dram_addr, buf, n);
+    if (vrc == 1) {
+        free(buf);
+        return 1;
+    }
+
+    if (play) {
+        if (gus_enable_dac_sequence(h, base)) {
+            free(buf);
+            return 1;
+        }
+
+        if (gus_start_voice_gf1addr(h, base, dram_addr, n,
+                                    freq,
+                                    0x00,
+                                    0x0d,
+                                    0xf000,
+                                    0x00,
+                                    0x08)) {
+            free(buf);
+            return 1;
+        }
+
+        puts("started verified full upload; no post-start polling/dumps");
+    }
+
+    free(buf);
+    return vrc;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Official known-good GUS WAV player                                         */
+/* ------------------------------------------------------------------------- */
+
+static void usage_gus_play_safe_official(void)
+{
+    puts("gus-play-safe <base> <wavfile> [options]");
+    puts("");
+    puts("Confirmed-good defaults:");
+    puts("  dram=0x10000 offset=0 count=whole-WAV gain=400 freq=0x0400 verify=off play=on");
+    puts("");
+    puts("Options:");
+    puts("  --verify | verify       sampled per-page readback verification");
+    puts("  --no-play               upload/verify only");
+    puts("  --dram <hex/dec>        default 0x10000");
+    puts("  --offset <hex/dec>      WAV sample/frame offset, default 0");
+    puts("  --count <hex/dec>       sample/frame count, default whole remaining");
+    puts("  --gain <hex/dec>        gain x100, default 400");
+    puts("  --freq <hex/dec>        GF1 frequency register, default 0x0400");
+    puts("  --listen <ms>           auto-stop after ms, default 0/no-autostop");
+    puts("");
+    puts("Examples:");
+    puts("  gus-play-safe 0x8240 .\\test.wav");
+    puts("  gus-play-safe 0x8240 .\\test.wav --verify");
+    puts("  gus-play-safe 0x8240 .\\test.wav --verify --freq 0x03c0");
+    puts("  gus-play-safe 0x8240 .\\test.wav --no-play --verify");
+}
+
+static int cmd_gus_play_safe_official(HANDLE h, int ac, char **av)
+{
+    if (ac < 4) {
+        usage_gus_play_safe_official();
+        return 2;
+    }
+
+    uint16_t base = (uint16_t)u32(av[2]);
+    const char *path = av[3];
+
+    uint32_t dram_addr     = 0x10000;
+    uint32_t sample_offset = 0;
+    uint32_t sample_count  = 0;       /* 0 = whole remaining WAV */
+    uint32_t gain_x100     = 400;
+    uint16_t freq          = 0x0400;
+    uint32_t listen_ms     = 0;
+    int verify             = 0;
+    int play               = 1;
+
+    for (int i = 4; i < ac; i++) {
+        if (!_stricmp(av[i], "--verify") || !_stricmp(av[i], "verify")) {
+            verify = 1;
+        } else if (!_stricmp(av[i], "--no-verify")) {
+            verify = 0;
+        } else if (!_stricmp(av[i], "--no-play")) {
+            play = 0;
+        } else if (!_stricmp(av[i], "--play")) {
+            play = 1;
+        } else if ((!_stricmp(av[i], "--dram") || !_stricmp(av[i], "dram")) && i + 1 < ac) {
+            dram_addr = u32(av[++i]);
+        } else if ((!_stricmp(av[i], "--offset") || !_stricmp(av[i], "offset")) && i + 1 < ac) {
+            sample_offset = u32(av[++i]);
+        } else if ((!_stricmp(av[i], "--count") || !_stricmp(av[i], "count")) && i + 1 < ac) {
+            sample_count = u32(av[++i]);
+        } else if ((!_stricmp(av[i], "--gain") || !_stricmp(av[i], "gain")) && i + 1 < ac) {
+            gain_x100 = u32(av[++i]);
+        } else if ((!_stricmp(av[i], "--freq") || !_stricmp(av[i], "freq")) && i + 1 < ac) {
+            freq = (uint16_t)u32(av[++i]);
+        } else if ((!_stricmp(av[i], "--listen") || !_stricmp(av[i], "listen")) && i + 1 < ac) {
+            listen_ms = u32(av[++i]);
+        } else if (!_stricmp(av[i], "--help") || !_stricmp(av[i], "help")) {
+            usage_gus_play_safe_official();
+            return 0;
+        } else {
+            printf("gus-play-safe: unknown option: %s\n", av[i]);
+            usage_gus_play_safe_official();
+            return 2;
+        }
+    }
+
+    GUS_WAV_INFO wi;
+    uint8_t *buf = NULL;
+    uint32_t n = 0;
+    int vrc = 0;
+
+    if (wav_read_info(path, &wi)) return 1;
+
+    if (gus_wav_convert_window_to_xor80_noclamp_fullverify(
+            path, &wi, sample_offset, sample_count, gain_x100, &buf, &n)) {
+        return 1;
+    }
+
+    printf("gus-play-safe file=%s dram=0x%06x offset=%u samples=%u src_rate=%u bits=%u ch=%u gain=%u freq=0x%04x verify=%d play=%d listen_ms=%u\n",
+           path, dram_addr, sample_offset, n, wi.sample_rate, wi.bits_per_sample,
+           wi.channels, gain_x100, freq, verify, play, listen_ms);
+
+    gus_print_u8_preview("encoded xor80 first bytes:", buf, n);
+    wav_analyze_u8_buffer(buf, n);
+
+    {
+        uint32_t guard_start = (dram_addr >= 4096) ? dram_addr - 4096 : 0;
+        uint32_t guard_count = n + 8192;
+        puts("gus-play-safe: bounded guard-fill around target with 0x00");
+        if (gus_guard_fill_range_fullverify(h, base, guard_start, guard_count, 0x00)) {
+            free(buf);
+            return 1;
+        }
+    }
+
+    if (gus_upload_u8_buffer_safe(h, base, dram_addr, buf, n)) {
+        free(buf);
+        return 1;
+    }
+
+    if (verify) {
+        vrc = gus_verify_dram_pages_fullverify(h, base, dram_addr, buf, n);
+        if (vrc == 1) {
+            free(buf);
+            return 1;
+        }
+        if (vrc != 0) {
+            printf("gus-play-safe: verify failed vrc=%d; not starting playback\n", vrc);
+            free(buf);
+            return vrc;
+        }
+    } else {
+        puts("gus-play-safe: verify skipped");
+    }
+
+    free(buf);
+    buf = NULL;
+
+    if (play) {
+        if (gus_enable_dac_sequence(h, base)) {
+            return 1;
+        }
+
+        if (gus_start_voice_gf1addr(h, base, dram_addr, n,
+                                    freq,
+                                    0x00,   /* one-shot */
+                                    0x0d,   /* active voices */
+                                    0xf000, /* volume */
+                                    0x00,   /* volctrl */
+                                    0x08))  /* pan center */
+        {
+            return 1;
+        }
+
+        puts("gus-play-safe: started; no post-start polling/dumps");
+
+        if (listen_ms > 0) {
+            if (listen_ms > 60000) listen_ms = 60000;
+            Sleep(listen_ms);
+            if (gus_global_write8_high(h, base, 0x00, 0x03)) return 1;
+            puts("gus-play-safe: auto-stopped");
+        }
+    } else {
+        puts("gus-play-safe: no-play requested; upload complete");
+    }
+
+    return 0;
+}
 static int cmd_simple(HANDLE h, DWORD code) {
   DWORD r;
   return ioctl(h, code, NULL, 0, NULL, 0, &r) ? 0 : 1;
@@ -5525,13 +5985,15 @@ else if (IS("gus-dram-unsigned-to-signed")) rc = cmd_gus_dram_unsigned_to_signed
 else if (IS("gus-gen-wave-addrmode-test-safe")) rc = cmd_gus_gen_wave_addrmode_test_safe(h, ac, av);
 else if (IS("gus-addrmode-sweep-safe")) rc = cmd_gus_addrmode_sweep_safe(h, ac, av);else if (IS("gus-gen-wave-addrmode-test-safe")) rc = cmd_gus_gen_wave_addrmode_test_safe(h, ac, av);
 else if (IS("gus-addrmode-sweep-safe")) rc = cmd_gus_addrmode_sweep_safe(h, ac, av);else if (IS("gus-const-test-safe")) rc = cmd_gus_const_test_safe(h, ac, av);
-else if (IS("gus-gen-wave-period-test-safe")) rc = cmd_gus_gen_wave_period_test_safe(h, ac, av);else if (IS("gus-wav-play-guarded-poll-safe")) rc = cmd_gus_wav_play_guarded_poll_safe(h, ac, av);else if (IS("gus-wav-play-calibrated-safe")) rc = cmd_gus_wav_play_calibrated_safe(h, ac, av);else if (IS("gus-output-sweep-safe")) rc = cmd_gus_output_sweep_safe(h, ac, av);else if (IS("gus-wav-play-loud-safe")) rc = cmd_gus_wav_play_loud_safe(h, ac, av);else if (IS("gus-wav-play-oldloud-loop-safe")) rc = cmd_gus_wav_play_oldloud_loop_safe(h, ac, av);else if (IS("gus-gf1addr-square-test-safe")) rc = cmd_gus_gf1addr_square_test_safe(h, ac, av);else if (IS("gus-wav-play-gf1addr-safe")) rc = cmd_gus_wav_play_gf1addr_safe(h, ac, av);else if (IS("gus-dram-hiaddr-test-safe")) rc = cmd_gus_dram_hiaddr_test_safe(h, ac, av);else if (IS("gus-wav-play64-gf1addr-safe")) rc = cmd_gus_wav_play64_gf1addr_safe(h, ac, av);else if (IS("gus-wav-play64-audition-safe")) rc = cmd_gus_wav_play64_audition_safe(h, ac, av);else if (IS("gus-wav-play64-quality-matrix-safe")) rc = cmd_gus_wav_play64_quality_matrix_safe(h, ac, av);else if (IS("gus-wav-play64-enc-audition-safe")) rc = cmd_gus_wav_play64_enc_audition_safe(h, ac, av);else if (IS("gus-wav-play64-clean-safe")) rc = cmd_gus_wav_play64_clean_safe(h, ac, av);else if (IS("gus-dram-hiaddr-mode-sweep-safe")) rc = cmd_gus_dram_hiaddr_mode_sweep_safe(h, ac, av);else if (IS("gus-wav-play-full-gf1-clean-safe")) rc = cmd_gus_wav_play_full_gf1_clean_safe(h, ac, av);else {
+else if (IS("gus-gen-wave-period-test-safe")) rc = cmd_gus_gen_wave_period_test_safe(h, ac, av);else if (IS("gus-wav-play-guarded-poll-safe")) rc = cmd_gus_wav_play_guarded_poll_safe(h, ac, av);else if (IS("gus-wav-play-calibrated-safe")) rc = cmd_gus_wav_play_calibrated_safe(h, ac, av);else if (IS("gus-output-sweep-safe")) rc = cmd_gus_output_sweep_safe(h, ac, av);else if (IS("gus-wav-play-loud-safe")) rc = cmd_gus_wav_play_loud_safe(h, ac, av);else if (IS("gus-wav-play-oldloud-loop-safe")) rc = cmd_gus_wav_play_oldloud_loop_safe(h, ac, av);else if (IS("gus-gf1addr-square-test-safe")) rc = cmd_gus_gf1addr_square_test_safe(h, ac, av);else if (IS("gus-wav-play-gf1addr-safe")) rc = cmd_gus_wav_play_gf1addr_safe(h, ac, av);else if (IS("gus-dram-hiaddr-test-safe")) rc = cmd_gus_dram_hiaddr_test_safe(h, ac, av);else if (IS("gus-wav-play64-gf1addr-safe")) rc = cmd_gus_wav_play64_gf1addr_safe(h, ac, av);else if (IS("gus-wav-play64-audition-safe")) rc = cmd_gus_wav_play64_audition_safe(h, ac, av);else if (IS("gus-wav-play64-quality-matrix-safe")) rc = cmd_gus_wav_play64_quality_matrix_safe(h, ac, av);else if (IS("gus-wav-play64-enc-audition-safe")) rc = cmd_gus_wav_play64_enc_audition_safe(h, ac, av);else if (IS("gus-wav-play64-clean-safe")) rc = cmd_gus_wav_play64_clean_safe(h, ac, av);else if (IS("gus-dram-hiaddr-mode-sweep-safe")) rc = cmd_gus_dram_hiaddr_mode_sweep_safe(h, ac, av);else if (IS("gus-wav-play-full-gf1-clean-safe")) rc = cmd_gus_wav_play_full_gf1_clean_safe(h, ac, av);else if (IS("gus-wav-upload-full-verify-safe")) rc = cmd_gus_wav_upload_full_verify_safe(h, ac, av);else if (IS("gus-play-safe")) rc = cmd_gus_play_safe_official(h, ac, av);else {
     usage();
     rc = 2;
   }
   CloseHandle(h);
   return rc;
 }
+
+
 
 
 
