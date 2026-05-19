@@ -5725,6 +5725,207 @@ static int cmd_gus_play_safe_official(HANDLE h, int ac, char **av)
 
     return 0;
 }
+
+/* ------------------------------------------------------------------------- */
+/* Known-good GUS self-test                                                   */
+/* ------------------------------------------------------------------------- */
+
+static int gus_selftest_write_byte_run(HANDLE h, uint16_t base, uint32_t addr, uint8_t value, uint32_t count)
+{
+    for (uint32_t i = 0; i < count; i++) {
+        if (gus_dram_set_addr(h, base, addr + i)) return 1;
+        if (port_out8(h, (uint16_t)(base + 0x107), value)) return 1;
+    }
+    return 0;
+}
+
+static int gus_selftest_read_byte_run(HANDLE h, uint16_t base, uint32_t addr, uint8_t *out, uint32_t count)
+{
+    for (uint32_t i = 0; i < count; i++) {
+        if (gus_dram_set_addr(h, base, addr + i)) return 1;
+        if (port_in8(h, (uint16_t)(base + 0x107), &out[i])) return 1;
+    }
+    return 0;
+}
+
+static int gus_selftest_high_dram_markers(HANDLE h, uint16_t base)
+{
+    uint8_t tmp[16];
+    struct marker_s {
+        uint32_t addr;
+        uint8_t value;
+    } markers[] = {
+        { 0x00000, 0x11 },
+        { 0x08000, 0x22 },
+        { 0x10000, 0x33 },
+        { 0x18000, 0x44 },
+        { 0x20000, 0x55 },
+    };
+
+    puts("[1/3] high-DRAM marker test");
+
+    for (unsigned i = 0; i < sizeof(markers) / sizeof(markers[0]); i++) {
+        if (gus_selftest_write_byte_run(h, base, markers[i].addr, markers[i].value, 32)) return 1;
+    }
+
+    for (unsigned i = 0; i < sizeof(markers) / sizeof(markers[0]); i++) {
+        uint32_t bad = 0;
+        if (gus_selftest_read_byte_run(h, base, markers[i].addr, tmp, sizeof(tmp))) return 1;
+
+        printf("  %06x:", markers[i].addr);
+        for (unsigned j = 0; j < sizeof(tmp); j++) {
+            printf(" %02x", tmp[j]);
+            if (tmp[j] != markers[i].value) bad++;
+        }
+        printf("  %s\n", bad ? "BAD" : "OK");
+
+        if (bad) return 2;
+    }
+
+    puts("  high-DRAM markers OK");
+    return 0;
+}
+
+static int gus_selftest_upload_verify(HANDLE h, uint16_t base)
+{
+    enum { N = 65536 };
+    uint8_t *buf = (uint8_t *)malloc(N);
+    int rc = 0;
+
+    puts("[2/3] upload/readback verify at 0x10000");
+
+    if (!buf) {
+        puts("  malloc failed");
+        return 1;
+    }
+
+    for (uint32_t i = 0; i < N; i++) {
+        /*
+            Signed-style/xor80-ish deterministic stress pattern:
+              not all zero, crosses 0x80, no trivial 64K mirror assumptions.
+        */
+        buf[i] = (uint8_t)(((i * 37u) ^ (i >> 3) ^ 0x5au) & 0xffu);
+    }
+
+    if (gus_upload_u8_buffer_safe(h, base, 0x10000, buf, N)) {
+        free(buf);
+        return 1;
+    }
+
+    rc = gus_verify_dram_pages_fullverify(h, base, 0x10000, buf, N);
+    free(buf);
+
+    if (rc == 0) {
+        puts("  upload/readback verify OK");
+    } else {
+        printf("  upload/readback verify FAILED rc=%d\n", rc);
+    }
+
+    return rc;
+}
+
+static int gus_selftest_optional_wav(HANDLE h, uint16_t base, const char *path)
+{
+    GUS_WAV_INFO wi;
+    uint8_t *buf = NULL;
+    uint32_t n = 0;
+
+    puts("[3/3] optional WAV playback check");
+
+    if (!path || !path[0]) {
+        puts("  skipped: no wavfile provided");
+        return 0;
+    }
+
+    if (wav_read_info(path, &wi)) return 1;
+
+    /*
+        Keep the self-test short. The official command handles full files.
+        Use the known-good conversion settings:
+          xor80, gain 400, freq 0x0400.
+    */
+    if (gus_wav_convert_window_to_xor80_noclamp_fullverify(path, &wi, 0, 65536, 400, &buf, &n)) {
+        return 1;
+    }
+
+    printf("  wav=%s samples=%u src_rate=%u bits=%u ch=%u\n",
+           path, n, wi.sample_rate, wi.bits_per_sample, wi.channels);
+
+    if (gus_upload_u8_buffer_safe(h, base, 0x10000, buf, n)) {
+        free(buf);
+        return 1;
+    }
+
+    {
+        int vrc = gus_verify_dram_pages_fullverify(h, base, 0x10000, buf, n);
+        if (vrc) {
+            free(buf);
+            printf("  WAV upload verify failed rc=%d\n", vrc);
+            return vrc;
+        }
+    }
+
+    free(buf);
+
+    if (gus_enable_dac_sequence(h, base)) return 1;
+
+    if (gus_start_voice_gf1addr(h, base, 0x10000, n,
+                                0x0400,
+                                0x00,
+                                0x0d,
+                                0xf000,
+                                0x00,
+                                0x08)) {
+        return 1;
+    }
+
+    puts("  playing ~1.6s known-good WAV chunk...");
+    Sleep(1600);
+    if (gus_global_write8_high(h, base, 0x00, 0x03)) return 1;
+    puts("  WAV playback check done");
+
+    return 0;
+}
+
+static int cmd_gus_known_good_selftest_safe(HANDLE h, int ac, char **av)
+{
+    if (ac < 3) {
+        puts("gus-known-good-selftest-safe <base> [wavfile]");
+        return 2;
+    }
+
+    uint16_t base = (uint16_t)u32(av[2]);
+    const char *wav = (ac > 3) ? av[3] : NULL;
+
+    puts("============================================================");
+    puts("GUS known-good self-test");
+    puts("Expected fixed stack:");
+    puts("  high DRAM mode3");
+    puts("  GF1 packed voice addresses");
+    puts("  xor80/signed-style sample data");
+    puts("  gain 400 / freq 0x0400");
+    puts("============================================================");
+
+    {
+        int rc = gus_selftest_high_dram_markers(h, base);
+        if (rc) return rc;
+    }
+
+    {
+        int rc = gus_selftest_upload_verify(h, base);
+        if (rc) return rc;
+    }
+
+    {
+        int rc = gus_selftest_optional_wav(h, base, wav);
+        if (rc) return rc;
+    }
+
+    puts("============================================================");
+    puts("GUS known-good self-test PASSED");
+    puts("============================================================");
+    return 0;
+}
 static int cmd_simple(HANDLE h, DWORD code) {
   DWORD r;
   return ioctl(h, code, NULL, 0, NULL, 0, &r) ? 0 : 1;
@@ -5985,13 +6186,14 @@ else if (IS("gus-dram-unsigned-to-signed")) rc = cmd_gus_dram_unsigned_to_signed
 else if (IS("gus-gen-wave-addrmode-test-safe")) rc = cmd_gus_gen_wave_addrmode_test_safe(h, ac, av);
 else if (IS("gus-addrmode-sweep-safe")) rc = cmd_gus_addrmode_sweep_safe(h, ac, av);else if (IS("gus-gen-wave-addrmode-test-safe")) rc = cmd_gus_gen_wave_addrmode_test_safe(h, ac, av);
 else if (IS("gus-addrmode-sweep-safe")) rc = cmd_gus_addrmode_sweep_safe(h, ac, av);else if (IS("gus-const-test-safe")) rc = cmd_gus_const_test_safe(h, ac, av);
-else if (IS("gus-gen-wave-period-test-safe")) rc = cmd_gus_gen_wave_period_test_safe(h, ac, av);else if (IS("gus-wav-play-guarded-poll-safe")) rc = cmd_gus_wav_play_guarded_poll_safe(h, ac, av);else if (IS("gus-wav-play-calibrated-safe")) rc = cmd_gus_wav_play_calibrated_safe(h, ac, av);else if (IS("gus-output-sweep-safe")) rc = cmd_gus_output_sweep_safe(h, ac, av);else if (IS("gus-wav-play-loud-safe")) rc = cmd_gus_wav_play_loud_safe(h, ac, av);else if (IS("gus-wav-play-oldloud-loop-safe")) rc = cmd_gus_wav_play_oldloud_loop_safe(h, ac, av);else if (IS("gus-gf1addr-square-test-safe")) rc = cmd_gus_gf1addr_square_test_safe(h, ac, av);else if (IS("gus-wav-play-gf1addr-safe")) rc = cmd_gus_wav_play_gf1addr_safe(h, ac, av);else if (IS("gus-dram-hiaddr-test-safe")) rc = cmd_gus_dram_hiaddr_test_safe(h, ac, av);else if (IS("gus-wav-play64-gf1addr-safe")) rc = cmd_gus_wav_play64_gf1addr_safe(h, ac, av);else if (IS("gus-wav-play64-audition-safe")) rc = cmd_gus_wav_play64_audition_safe(h, ac, av);else if (IS("gus-wav-play64-quality-matrix-safe")) rc = cmd_gus_wav_play64_quality_matrix_safe(h, ac, av);else if (IS("gus-wav-play64-enc-audition-safe")) rc = cmd_gus_wav_play64_enc_audition_safe(h, ac, av);else if (IS("gus-wav-play64-clean-safe")) rc = cmd_gus_wav_play64_clean_safe(h, ac, av);else if (IS("gus-dram-hiaddr-mode-sweep-safe")) rc = cmd_gus_dram_hiaddr_mode_sweep_safe(h, ac, av);else if (IS("gus-wav-play-full-gf1-clean-safe")) rc = cmd_gus_wav_play_full_gf1_clean_safe(h, ac, av);else if (IS("gus-wav-upload-full-verify-safe")) rc = cmd_gus_wav_upload_full_verify_safe(h, ac, av);else if (IS("gus-play-safe")) rc = cmd_gus_play_safe_official(h, ac, av);else {
+else if (IS("gus-gen-wave-period-test-safe")) rc = cmd_gus_gen_wave_period_test_safe(h, ac, av);else if (IS("gus-wav-play-guarded-poll-safe")) rc = cmd_gus_wav_play_guarded_poll_safe(h, ac, av);else if (IS("gus-wav-play-calibrated-safe")) rc = cmd_gus_wav_play_calibrated_safe(h, ac, av);else if (IS("gus-output-sweep-safe")) rc = cmd_gus_output_sweep_safe(h, ac, av);else if (IS("gus-wav-play-loud-safe")) rc = cmd_gus_wav_play_loud_safe(h, ac, av);else if (IS("gus-wav-play-oldloud-loop-safe")) rc = cmd_gus_wav_play_oldloud_loop_safe(h, ac, av);else if (IS("gus-gf1addr-square-test-safe")) rc = cmd_gus_gf1addr_square_test_safe(h, ac, av);else if (IS("gus-wav-play-gf1addr-safe")) rc = cmd_gus_wav_play_gf1addr_safe(h, ac, av);else if (IS("gus-dram-hiaddr-test-safe")) rc = cmd_gus_dram_hiaddr_test_safe(h, ac, av);else if (IS("gus-wav-play64-gf1addr-safe")) rc = cmd_gus_wav_play64_gf1addr_safe(h, ac, av);else if (IS("gus-wav-play64-audition-safe")) rc = cmd_gus_wav_play64_audition_safe(h, ac, av);else if (IS("gus-wav-play64-quality-matrix-safe")) rc = cmd_gus_wav_play64_quality_matrix_safe(h, ac, av);else if (IS("gus-wav-play64-enc-audition-safe")) rc = cmd_gus_wav_play64_enc_audition_safe(h, ac, av);else if (IS("gus-wav-play64-clean-safe")) rc = cmd_gus_wav_play64_clean_safe(h, ac, av);else if (IS("gus-dram-hiaddr-mode-sweep-safe")) rc = cmd_gus_dram_hiaddr_mode_sweep_safe(h, ac, av);else if (IS("gus-wav-play-full-gf1-clean-safe")) rc = cmd_gus_wav_play_full_gf1_clean_safe(h, ac, av);else if (IS("gus-wav-upload-full-verify-safe")) rc = cmd_gus_wav_upload_full_verify_safe(h, ac, av);else if (IS("gus-play-safe")) rc = cmd_gus_play_safe_official(h, ac, av);else if (IS("gus-known-good-selftest-safe")) rc = cmd_gus_known_good_selftest_safe(h, ac, av);else {
     usage();
     rc = 2;
   }
   CloseHandle(h);
   return rc;
 }
+
 
 
 
