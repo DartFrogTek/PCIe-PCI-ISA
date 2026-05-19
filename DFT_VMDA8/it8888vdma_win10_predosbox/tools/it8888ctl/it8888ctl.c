@@ -1486,33 +1486,37 @@ static int cmd_gus_voice_test(HANDLE h, int ac, char **av)
 /* ------------------------------------------------------------------------- */
 
 /* GUS_DRAM_20BIT_ADDR_PATCH */
+/* GUS_DRAM_HIGH_ADDR_MODE3_CONFIRMED */
 static int gus_dram_set_addr(HANDLE h, uint16_t base, uint32_t addr)
 {
     /*
-        GUS DRAM data port addressing:
-          global register 0x43 = address bits 15..0
-          global register 0x44 = address bits 23..16 / high part
+        Confirmed by gus-dram-hiaddr-mode-sweep-safe:
 
-        The old code only effectively programmed the low 16 bits, causing
-        mirrors every 0x10000:
-          0x00000 == 0x10000 == 0x20000
-          0x08000 == 0x18000
+          MODE 3 works:
+            0x43 low16, then 0x44 with high address byte in HIGH byte.
 
-        Program both registers every time so uploads/dumps above 64 KiB land
-        at the intended DRAM address.
+        Readback after mode 3:
+            000000 -> 11
+            008000 -> 22
+            010000 -> 33
+            018000 -> 44
+            020000 -> 55
+
+        So:
+          reg 0x43 = addr[15:0]
+          reg 0x44 high byte = addr[23:16]
+          reg 0x44 low byte  = 0
     */
     uint16_t lo16 = (uint16_t)(addr & 0xFFFFu);
     uint8_t hi8 = (uint8_t)((addr >> 16) & 0xFFu);
 
-    /* select global register 0x43 and write low 16 address bits */
     if (port_out8(h, (uint16_t)(base + 0x103), 0x43)) return 1;
     if (port_out8(h, (uint16_t)(base + 0x104), (uint8_t)(lo16 & 0xFFu))) return 1;
     if (port_out8(h, (uint16_t)(base + 0x105), (uint8_t)((lo16 >> 8) & 0xFFu))) return 1;
 
-    /* select global register 0x44 and write high address bits */
     if (port_out8(h, (uint16_t)(base + 0x103), 0x44)) return 1;
-    if (port_out8(h, (uint16_t)(base + 0x104), hi8)) return 1;
-    if (port_out8(h, (uint16_t)(base + 0x105), 0x00)) return 1;
+    if (port_out8(h, (uint16_t)(base + 0x104), 0x00)) return 1;
+    if (port_out8(h, (uint16_t)(base + 0x105), hi8)) return 1;
 
     return 0;
 }
@@ -5122,6 +5126,145 @@ static int cmd_gus_dram_hiaddr_mode_sweep_safe(HANDLE h, int ac, char **av)
     puts("\nmode sweep done.");
     return 0;
 }
+
+/* ------------------------------------------------------------------------- */
+/* Full/high-DRAM GF1 clean WAV playback                                      */
+/* ------------------------------------------------------------------------- */
+
+#ifndef GUS_FULL_CLEAN_MAX_UPLOAD
+#define GUS_FULL_CLEAN_MAX_UPLOAD (512u * 1024u)
+#endif
+
+static void gus_xor80_buffer_fullclean(uint8_t *buf, uint32_t n)
+{
+    for (uint32_t i = 0; i < n; i++) {
+        buf[i] ^= 0x80;
+    }
+}
+
+static int gus_guard_fill_range_fullclean(HANDLE h, uint16_t base, uint32_t addr, uint32_t count, uint8_t value)
+{
+    for (uint32_t i = 0; i < count; i++) {
+        if (gus_dram_set_addr(h, base, addr + i)) return 1;
+        if (port_out8(h, (uint16_t)(base + 0x107), value)) return 1;
+    }
+    return 0;
+}
+
+static int cmd_gus_wav_play_full_gf1_clean_safe(HANDLE h, int ac, char **av)
+{
+    if (ac < 4) {
+        puts("gus-wav-play-full-gf1-clean-safe <base> <wavfile> [dram_addr] [sample_offset] [sample_count] [gain_x100] [freq] [listen_ms]");
+        puts("default: dram=0x10000 offset=0 count=remaining/clamped gain=400 freq=0x03c0 listen_ms=0/no-autostop");
+        puts("uses confirmed high-DRAM addr mode3, xor80 encoding, GF1 packed voice addresses");
+        return 2;
+    }
+
+    uint16_t base = (uint16_t)u32(av[2]);
+    const char *path = av[3];
+
+    uint32_t dram_addr     = (ac > 4) ? u32(av[4]) : 0x10000;
+    uint32_t sample_offset = (ac > 5) ? u32(av[5]) : 0;
+    uint32_t sample_count  = (ac > 6) ? u32(av[6]) : 0;
+    uint32_t gain_x100     = (ac > 7) ? u32(av[7]) : 400;
+    uint16_t freq          = (ac > 8) ? (uint16_t)u32(av[8]) : 0x03c0;
+    uint32_t listen_ms     = (ac > 9) ? u32(av[9]) : 0;
+
+    GUS_WAV_INFO wi;
+    uint8_t *buf = NULL;
+    uint32_t n = 0;
+    uint32_t bytes_per_sample = 0;
+    uint32_t bytes_per_frame = 0;
+    uint32_t total_frames = 0;
+
+    if (wav_read_info(path, &wi)) return 1;
+
+    bytes_per_sample = (uint32_t)(wi.bits_per_sample / 8);
+    if (bytes_per_sample == 0) bytes_per_sample = 1;
+    bytes_per_frame = (uint32_t)wi.channels * bytes_per_sample;
+    if (bytes_per_frame == 0) bytes_per_frame = 1;
+    total_frames = (uint32_t)(wi.data_size / bytes_per_frame);
+
+    if (sample_offset >= total_frames) {
+        printf("wav: sample_offset %u >= frames %u\n", sample_offset, total_frames);
+        return 1;
+    }
+
+    if (sample_count == 0) {
+        sample_count = total_frames - sample_offset;
+    }
+
+    if (sample_count > GUS_FULL_CLEAN_MAX_UPLOAD) {
+        printf("sample_count %u clamped to %u for safe port upload\n", sample_count, GUS_FULL_CLEAN_MAX_UPLOAD);
+        sample_count = GUS_FULL_CLEAN_MAX_UPLOAD;
+    }
+
+    if (wav_convert_window_to_u8_gain(path, &wi, sample_offset, sample_count, gain_x100, &buf, &n)) return 1;
+
+    if (n < 64) {
+        free(buf);
+        puts("wav: too few converted samples");
+        return 1;
+    }
+
+    gus_xor80_buffer_fullclean(buf, n);
+
+    /*
+        Fill a little before and after the target region with signed silence.
+        Keep this bounded so the command does not take forever.
+    */
+    {
+        uint32_t guard_start = (dram_addr >= 4096) ? (dram_addr - 4096) : 0;
+        uint32_t guard_count = n + 8192;
+        if (guard_count > GUS_FULL_CLEAN_MAX_UPLOAD + 8192) {
+            guard_count = GUS_FULL_CLEAN_MAX_UPLOAD + 8192;
+        }
+        puts("full-clean: bounded guard-fill around target region with 0x00 xor80/signed silence");
+        if (gus_guard_fill_range_fullclean(h, base, guard_start, guard_count, 0x00)) {
+            free(buf);
+            return 1;
+        }
+    }
+
+    if (gus_enable_dac_sequence(h, base)) {
+        free(buf);
+        return 1;
+    }
+
+    printf("gus-wav-play-full-gf1-clean-safe file=%s src_offset=%u dram=0x%06x samples=%u src_rate=%u freq=0x%04x gain=%u encoding=xor80 ctrl=0x00 active=0x0d vol=0xf000 volctrl=0x00 pan=0x08 listen_ms=%u\n",
+           path, sample_offset, dram_addr, n, wi.sample_rate, freq, gain_x100, listen_ms);
+
+    gus_print_u8_preview("encoded xor80 first bytes:", buf, n);
+    wav_analyze_u8_buffer(buf, n);
+
+    if (gus_upload_u8_buffer_safe(h, base, dram_addr, buf, n)) {
+        free(buf);
+        return 1;
+    }
+
+    free(buf);
+
+    if (gus_start_voice_gf1addr(h, base, dram_addr, n,
+                                freq,
+                                0x00,   /* one-shot */
+                                0x0d,
+                                0xf000,
+                                0x00,
+                                0x08)) {
+        return 1;
+    }
+
+    puts("started full-clean; no post-start polling/dumps");
+
+    if (listen_ms > 0) {
+        if (listen_ms > 30000) listen_ms = 30000;
+        Sleep(listen_ms);
+        if (gus_global_write8_high(h, base, 0x00, 0x03)) return 1;
+        puts("auto-stopped");
+    }
+
+    return 0;
+}
 static int cmd_simple(HANDLE h, DWORD code) {
   DWORD r;
   return ioctl(h, code, NULL, 0, NULL, 0, &r) ? 0 : 1;
@@ -5382,13 +5525,15 @@ else if (IS("gus-dram-unsigned-to-signed")) rc = cmd_gus_dram_unsigned_to_signed
 else if (IS("gus-gen-wave-addrmode-test-safe")) rc = cmd_gus_gen_wave_addrmode_test_safe(h, ac, av);
 else if (IS("gus-addrmode-sweep-safe")) rc = cmd_gus_addrmode_sweep_safe(h, ac, av);else if (IS("gus-gen-wave-addrmode-test-safe")) rc = cmd_gus_gen_wave_addrmode_test_safe(h, ac, av);
 else if (IS("gus-addrmode-sweep-safe")) rc = cmd_gus_addrmode_sweep_safe(h, ac, av);else if (IS("gus-const-test-safe")) rc = cmd_gus_const_test_safe(h, ac, av);
-else if (IS("gus-gen-wave-period-test-safe")) rc = cmd_gus_gen_wave_period_test_safe(h, ac, av);else if (IS("gus-wav-play-guarded-poll-safe")) rc = cmd_gus_wav_play_guarded_poll_safe(h, ac, av);else if (IS("gus-wav-play-calibrated-safe")) rc = cmd_gus_wav_play_calibrated_safe(h, ac, av);else if (IS("gus-output-sweep-safe")) rc = cmd_gus_output_sweep_safe(h, ac, av);else if (IS("gus-wav-play-loud-safe")) rc = cmd_gus_wav_play_loud_safe(h, ac, av);else if (IS("gus-wav-play-oldloud-loop-safe")) rc = cmd_gus_wav_play_oldloud_loop_safe(h, ac, av);else if (IS("gus-gf1addr-square-test-safe")) rc = cmd_gus_gf1addr_square_test_safe(h, ac, av);else if (IS("gus-wav-play-gf1addr-safe")) rc = cmd_gus_wav_play_gf1addr_safe(h, ac, av);else if (IS("gus-dram-hiaddr-test-safe")) rc = cmd_gus_dram_hiaddr_test_safe(h, ac, av);else if (IS("gus-wav-play64-gf1addr-safe")) rc = cmd_gus_wav_play64_gf1addr_safe(h, ac, av);else if (IS("gus-wav-play64-audition-safe")) rc = cmd_gus_wav_play64_audition_safe(h, ac, av);else if (IS("gus-wav-play64-quality-matrix-safe")) rc = cmd_gus_wav_play64_quality_matrix_safe(h, ac, av);else if (IS("gus-wav-play64-enc-audition-safe")) rc = cmd_gus_wav_play64_enc_audition_safe(h, ac, av);else if (IS("gus-wav-play64-clean-safe")) rc = cmd_gus_wav_play64_clean_safe(h, ac, av);else if (IS("gus-dram-hiaddr-mode-sweep-safe")) rc = cmd_gus_dram_hiaddr_mode_sweep_safe(h, ac, av);else {
+else if (IS("gus-gen-wave-period-test-safe")) rc = cmd_gus_gen_wave_period_test_safe(h, ac, av);else if (IS("gus-wav-play-guarded-poll-safe")) rc = cmd_gus_wav_play_guarded_poll_safe(h, ac, av);else if (IS("gus-wav-play-calibrated-safe")) rc = cmd_gus_wav_play_calibrated_safe(h, ac, av);else if (IS("gus-output-sweep-safe")) rc = cmd_gus_output_sweep_safe(h, ac, av);else if (IS("gus-wav-play-loud-safe")) rc = cmd_gus_wav_play_loud_safe(h, ac, av);else if (IS("gus-wav-play-oldloud-loop-safe")) rc = cmd_gus_wav_play_oldloud_loop_safe(h, ac, av);else if (IS("gus-gf1addr-square-test-safe")) rc = cmd_gus_gf1addr_square_test_safe(h, ac, av);else if (IS("gus-wav-play-gf1addr-safe")) rc = cmd_gus_wav_play_gf1addr_safe(h, ac, av);else if (IS("gus-dram-hiaddr-test-safe")) rc = cmd_gus_dram_hiaddr_test_safe(h, ac, av);else if (IS("gus-wav-play64-gf1addr-safe")) rc = cmd_gus_wav_play64_gf1addr_safe(h, ac, av);else if (IS("gus-wav-play64-audition-safe")) rc = cmd_gus_wav_play64_audition_safe(h, ac, av);else if (IS("gus-wav-play64-quality-matrix-safe")) rc = cmd_gus_wav_play64_quality_matrix_safe(h, ac, av);else if (IS("gus-wav-play64-enc-audition-safe")) rc = cmd_gus_wav_play64_enc_audition_safe(h, ac, av);else if (IS("gus-wav-play64-clean-safe")) rc = cmd_gus_wav_play64_clean_safe(h, ac, av);else if (IS("gus-dram-hiaddr-mode-sweep-safe")) rc = cmd_gus_dram_hiaddr_mode_sweep_safe(h, ac, av);else if (IS("gus-wav-play-full-gf1-clean-safe")) rc = cmd_gus_wav_play_full_gf1_clean_safe(h, ac, av);else {
     usage();
     rc = 2;
   }
   CloseHandle(h);
   return rc;
 }
+
+
 
 
 
