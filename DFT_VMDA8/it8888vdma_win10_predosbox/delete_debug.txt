@@ -1,0 +1,5 @@
+Remove-Item -Force -ErrorAction SilentlyContinue .\tools\it8888ctl\x64\Debug\it8888ctl.pdb
+Remove-Item -Force -ErrorAction SilentlyContinue .\tools\it8888ctl\x64\Debug\it8888ctl.obj
+Remove-Item -Force -ErrorAction SilentlyContinue .\tools\it8888ctl\x64\Debug\vc*.pdb
+Remove-Item -Force -ErrorAction SilentlyContinue .\tools\it8888ctl\x64\Debug\*.ilk
+Remove-Item -Force -ErrorAction SilentlyContinue .\tools\it8888ctl\x64\Debug\*.idb

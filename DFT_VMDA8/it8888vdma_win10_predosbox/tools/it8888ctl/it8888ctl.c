@@ -5926,6 +5926,432 @@ static int cmd_gus_known_good_selftest_safe(HANDLE h, int ac, char **av)
     puts("============================================================");
     return 0;
 }
+
+/* ------------------------------------------------------------------------- */
+/* Conservative GUS DMA kick debugger                                         */
+/* ------------------------------------------------------------------------- */
+
+static int gus_dbg_global_write16(HANDLE h, uint16_t base, uint8_t reg, uint16_t value)
+{
+    if (port_out8(h, (uint16_t)(base + 0x103), reg)) return 1;
+    if (port_out8(h, (uint16_t)(base + 0x104), (uint8_t)(value & 0xff))) return 1;
+    if (port_out8(h, (uint16_t)(base + 0x105), (uint8_t)((value >> 8) & 0xff))) return 1;
+    return 0;
+}
+
+static int gus_dbg_global_write8_high(HANDLE h, uint16_t base, uint8_t reg, uint8_t value)
+{
+    if (port_out8(h, (uint16_t)(base + 0x103), reg)) return 1;
+    if (port_out8(h, (uint16_t)(base + 0x105), value)) return 1;
+    return 0;
+}
+
+static int gus_dbg_global_read16(HANDLE h, uint16_t base, uint8_t reg, uint16_t *out)
+{
+    uint8_t lo = 0, hi = 0;
+    if (port_out8(h, (uint16_t)(base + 0x103), reg)) return 1;
+    if (port_in8(h, (uint16_t)(base + 0x104), &lo)) return 1;
+    if (port_in8(h, (uint16_t)(base + 0x105), &hi)) return 1;
+    *out = (uint16_t)(lo | ((uint16_t)hi << 8));
+    return 0;
+}
+
+static int gus_dbg_global_read8_high(HANDLE h, uint16_t base, uint8_t reg, uint8_t *out)
+{
+    if (port_out8(h, (uint16_t)(base + 0x103), reg)) return 1;
+    if (port_in8(h, (uint16_t)(base + 0x105), out)) return 1;
+    return 0;
+}
+
+static int gus_dma_program_addr_debug_mode(HANDLE h, uint16_t base, uint32_t dram, int mode,
+                                           uint16_t *prog42, uint16_t *prog44)
+{
+    uint32_t a = dram;
+    uint16_t r42 = 0;
+    uint16_t r44 = 0;
+
+    switch (mode) {
+    default:
+    case 0:
+        /*
+            Legacy comparison: many old test commands effectively reduced this
+            to low DMA address bits. Keep it available for before/after.
+        */
+        a = dram >> 4;
+        r42 = (uint16_t)(a & 0xffffu);
+        r44 = (uint16_t)(((a >> 16) & 0xffu) << 8);
+        break;
+
+    case 1:
+        /* raw byte-address style */
+        a = dram;
+        r42 = (uint16_t)(a & 0xffffu);
+        r44 = (uint16_t)(((a >> 16) & 0xffu) << 8);
+        break;
+
+    case 2:
+        /* GF1-style shifted by 4 */
+        a = dram >> 4;
+        r42 = (uint16_t)(a & 0xffffu);
+        r44 = (uint16_t)(((a >> 16) & 0xffu) << 8);
+        break;
+
+    case 3:
+        /* GF1 voice-address-like shifted by 5 */
+        a = dram >> 5;
+        r42 = (uint16_t)(a & 0xffffu);
+        r44 = (uint16_t)(((a >> 16) & 0xffu) << 8);
+        break;
+    }
+
+    *prog42 = r42;
+    *prog44 = r44;
+
+    /*
+        DMA start register is 0x42. For high byte, reuse confirmed mode3 style
+        of writing high address byte into high side of 0x44. If the hardware
+        ignores 0x44 for DMA, the readback will tell us.
+    */
+    if (gus_dbg_global_write16(h, base, 0x42, r42)) return 1;
+    if (gus_dbg_global_write16(h, base, 0x44, r44)) return 1;
+
+    return 0;
+}
+
+static int cmd_gus_dma_kick_debug_safe(HANDLE h, int ac, char **av)
+{
+    if (ac < 5) {
+        puts("gus-dma-kick-debug-safe <base> <dram_addr> <ctrl> [settle_ms] [addr_mode]");
+        puts("addr_mode: 0=legacy/shift4 compare, 1=raw byte, 2=shift4, 3=shift5");
+        puts("recommended: one case at a time; avoid ctrl sweeps after hang");
+        return 2;
+    }
+
+    uint16_t base = (uint16_t)u32(av[2]);
+    uint32_t dram = u32(av[3]);
+    uint8_t ctrl = (uint8_t)u32(av[4]);
+    uint32_t settle_ms = (ac > 5) ? u32(av[5]) : 100;
+    int mode = (ac > 6) ? (int)u32(av[6]) : 0;
+
+    uint16_t before42 = 0, after42 = 0;
+    uint16_t before44 = 0, after44 = 0;
+    uint8_t before41 = 0, after41 = 0;
+    uint16_t prog42 = 0, prog44 = 0;
+
+    if (settle_ms > 1000) settle_ms = 1000;
+
+    if (gus_dbg_global_read16(h, base, 0x42, &before42)) return 1;
+    if (gus_dbg_global_read16(h, base, 0x44, &before44)) return 1;
+    if (gus_dbg_global_read8_high(h, base, 0x41, &before41)) return 1;
+
+    printf("gus-dma-kick-debug-safe base=0x%04x requested_dram=0x%06x ctrl=0x%02x settle=%ums addr_mode=%d\n",
+           base, dram, ctrl, settle_ms, mode);
+    printf("  before: reg42=0x%04x reg44=0x%04x ctrl41hi=0x%02x\n",
+           before42, before44, before41);
+
+    /*
+        Stop/clear DMA-ish ctrl first, but keep conservative. Do not do loops.
+    */
+    if (gus_dbg_global_write8_high(h, base, 0x41, 0x00)) return 1;
+
+    if (gus_dma_program_addr_debug_mode(h, base, dram, mode, &prog42, &prog44)) return 1;
+
+    printf("  programmed: reg42=0x%04x reg44=0x%04x\n", prog42, prog44);
+
+    if (gus_dbg_global_read16(h, base, 0x42, &after42)) return 1;
+    if (gus_dbg_global_read16(h, base, 0x44, &after44)) return 1;
+    if (gus_dbg_global_read8_high(h, base, 0x41, &after41)) return 1;
+
+    printf("  readback-before-start: reg42=0x%04x reg44=0x%04x ctrl41hi=0x%02x\n",
+           after42, after44, after41);
+
+    if (gus_dbg_global_write8_high(h, base, 0x41, ctrl)) return 1;
+
+    Sleep(settle_ms);
+
+    if (gus_dbg_global_read16(h, base, 0x42, &after42)) return 1;
+    if (gus_dbg_global_read16(h, base, 0x44, &after44)) return 1;
+    if (gus_dbg_global_read8_high(h, base, 0x41, &after41)) return 1;
+
+    printf("  after-start: reg42=0x%04x reg44=0x%04x ctrl41hi=0x%02x\n",
+           after42, after44, after41);
+
+    return 0;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Safe GUS DMA state/probe                                                   */
+/* ------------------------------------------------------------------------- */
+
+static int gus_state_sel(HANDLE h, uint16_t base, uint8_t reg)
+{
+    return port_out8(h, (uint16_t)(base + 0x103), reg);
+}
+
+static int gus_state_read_lo(HANDLE h, uint16_t base, uint8_t *v)
+{
+    return port_in8(h, (uint16_t)(base + 0x104), v);
+}
+
+static int gus_state_read_hi(HANDLE h, uint16_t base, uint8_t *v)
+{
+    return port_in8(h, (uint16_t)(base + 0x105), v);
+}
+
+static int gus_state_write_hi(HANDLE h, uint16_t base, uint8_t reg, uint8_t value)
+{
+    if (gus_state_sel(h, base, reg)) return 1;
+    return port_out8(h, (uint16_t)(base + 0x105), value);
+}
+
+static int gus_state_read16(HANDLE h, uint16_t base, uint8_t reg, uint16_t *out)
+{
+    uint8_t lo = 0, hi = 0;
+    if (gus_state_sel(h, base, reg)) return 1;
+    if (gus_state_read_lo(h, base, &lo)) return 1;
+    if (gus_state_read_hi(h, base, &hi)) return 1;
+    *out = (uint16_t)(lo | ((uint16_t)hi << 8));
+    return 0;
+}
+
+static int gus_state_read_hi8(HANDLE h, uint16_t base, uint8_t reg, uint8_t *out)
+{
+    if (gus_state_sel(h, base, reg)) return 1;
+    if (gus_state_read_hi(h, base, out)) return 1;
+    return 0;
+}
+
+static void gus_decode_dma_ctrl41(uint8_t v)
+{
+    printf("    decode-ish:");
+    if (v & 0x01) printf(" bit0");
+    if (v & 0x02) printf(" bit1");
+    if (v & 0x04) printf(" bit2");
+    if (v & 0x08) printf(" bit3");
+    if (v & 0x10) printf(" bit4");
+    if (v & 0x20) printf(" bit5");
+    if (v & 0x40) printf(" bit6/status_or_tc");
+    if (v & 0x80) printf(" bit7");
+    if (!v) printf(" zero");
+    printf("\n");
+}
+
+static int gus_dump_dma_related_state(HANDLE h, uint16_t base, const char *tag)
+{
+    uint16_t r40 = 0, r42 = 0, r43 = 0, r44 = 0, r45 = 0, r46 = 0, r47 = 0;
+    uint16_t r48 = 0, r49 = 0, r4a = 0, r4b = 0, r4c = 0, r4d = 0, r4e = 0, r4f = 0;
+    uint8_t ctrl41 = 0;
+    uint8_t sel = 0, data_lo = 0, data_hi = 0;
+
+    printf("---- GUS DMA state: %s ----\n", tag ? tag : "");
+
+    if (gus_state_read16(h, base, 0x40, &r40)) return 1;
+    if (gus_state_read_hi8(h, base, 0x41, &ctrl41)) return 1;
+    if (gus_state_read16(h, base, 0x42, &r42)) return 1;
+    if (gus_state_read16(h, base, 0x43, &r43)) return 1;
+    if (gus_state_read16(h, base, 0x44, &r44)) return 1;
+    if (gus_state_read16(h, base, 0x45, &r45)) return 1;
+    if (gus_state_read16(h, base, 0x46, &r46)) return 1;
+    if (gus_state_read16(h, base, 0x47, &r47)) return 1;
+    if (gus_state_read16(h, base, 0x48, &r48)) return 1;
+    if (gus_state_read16(h, base, 0x49, &r49)) return 1;
+    if (gus_state_read16(h, base, 0x4a, &r4a)) return 1;
+    if (gus_state_read16(h, base, 0x4b, &r4b)) return 1;
+    if (gus_state_read16(h, base, 0x4c, &r4c)) return 1;
+    if (gus_state_read16(h, base, 0x4d, &r4d)) return 1;
+    if (gus_state_read16(h, base, 0x4e, &r4e)) return 1;
+    if (gus_state_read16(h, base, 0x4f, &r4f)) return 1;
+
+    /*
+        These selector/data ports are useful for sanity when traces show access
+        to 0x18343/0x18344/0x18345.
+    */
+    if (port_in8(h, (uint16_t)(base + 0x103), &sel)) return 1;
+    if (port_in8(h, (uint16_t)(base + 0x104), &data_lo)) return 1;
+    if (port_in8(h, (uint16_t)(base + 0x105), &data_hi)) return 1;
+
+    printf("  base=0x%04x selector_port=0x%02x data_lo=0x%02x data_hi=0x%02x\n",
+           base, sel, data_lo, data_hi);
+
+    printf("  reg40=0x%04x\n", r40);
+    printf("  reg41_hi_dma_ctrl_status=0x%02x\n", ctrl41);
+    gus_decode_dma_ctrl41(ctrl41);
+    printf("  reg42_dma_addr?       =0x%04x\n", r42);
+    printf("  reg43_dram_addr_low?  =0x%04x\n", r43);
+    printf("  reg44_dram_addr_high? =0x%04x\n", r44);
+    printf("  reg45=0x%04x reg46=0x%04x reg47=0x%04x\n", r45, r46, r47);
+    printf("  reg48=0x%04x reg49=0x%04x reg4a=0x%04x reg4b=0x%04x\n", r48, r49, r4a, r4b);
+    printf("  reg4c=0x%04x reg4d=0x%04x reg4e=0x%04x reg4f=0x%04x\n", r4c, r4d, r4e, r4f);
+
+    /*
+        For our current tests:
+          reg42 moving to 0x00fd/0x00fe and reg41_hi becoming 0x40 is the
+          signature we keep seeing: GF1/PicoGUS state changes but no DDMA data moves.
+    */
+    return 0;
+}
+
+static int cmd_gus_dma_state_safe(HANDLE h, int ac, char **av)
+{
+    if (ac < 3) {
+        puts("gus-dma-state-safe <base>");
+        return 2;
+    }
+
+    uint16_t base = (uint16_t)u32(av[2]);
+    return gus_dump_dma_related_state(h, base, "snapshot");
+}
+
+static int cmd_gus_dma_ctrl_probe_safe(HANDLE h, int ac, char **av)
+{
+    if (ac < 3) {
+        puts("gus-dma-ctrl-probe-safe <base> [ctrl] [settle_ms]");
+        puts("default ctrl=0x01 settle=500");
+        return 2;
+    }
+
+    uint16_t base = (uint16_t)u32(av[2]);
+    uint8_t ctrl = (ac > 3) ? (uint8_t)u32(av[3]) : 0x01;
+    uint32_t settle_ms = (ac > 4) ? u32(av[4]) : 500;
+    if (settle_ms > 2000) settle_ms = 2000;
+
+    printf("gus-dma-ctrl-probe-safe base=0x%04x ctrl=0x%02x settle=%u ms\n",
+           base, ctrl, settle_ms);
+
+    if (gus_dump_dma_related_state(h, base, "before ctrl write")) return 1;
+
+    /*
+        Conservative: write only reg41 high byte, same as the debug kick,
+        and do not alter address registers.
+    */
+    if (gus_state_write_hi(h, base, 0x41, ctrl)) return 1;
+
+    Sleep(settle_ms);
+
+    if (gus_dump_dma_related_state(h, base, "after ctrl write")) return 1;
+
+    return 0;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Raw IT8888 DDMA register dump/poke                                         */
+/* ------------------------------------------------------------------------- */
+
+static uint16_t ddma_base_for_channel_safe(unsigned ch)
+{
+    switch (ch) {
+    case 0: return 0x8380;
+    case 1: return 0x8390;
+    case 2: return 0x83a0;
+    case 3: return 0x83b0;
+    case 4: return 0x0000;
+    case 5: return 0x83d0;
+    case 6: return 0x83e0;
+    case 7: return 0x83f0;
+    default: return 0x0000;
+    }
+}
+
+static int ddma_read_reg8_safe(HANDLE h, uint16_t base, uint8_t off, uint8_t *out)
+{
+    return port_in8(h, (uint16_t)(base + off), out);
+}
+
+static int ddma_write_reg8_safe(HANDLE h, uint16_t base, uint8_t off, uint8_t value)
+{
+    return port_out8(h, (uint16_t)(base + off), value);
+}
+
+static uint16_t ddma_le16_from_regs(const uint8_t *r, unsigned off)
+{
+    return (uint16_t)(r[off] | ((uint16_t)r[off + 1] << 8));
+}
+
+static uint32_t ddma_le32_from_regs(const uint8_t *r, unsigned off)
+{
+    return (uint32_t)r[off] |
+           ((uint32_t)r[off + 1] << 8) |
+           ((uint32_t)r[off + 2] << 16) |
+           ((uint32_t)r[off + 3] << 24);
+}
+
+static int cmd_ddma_reg_dump_safe(HANDLE h, int ac, char **av)
+{
+    if (ac < 3) {
+        puts("ddma-reg-dump-safe <channel>");
+        puts("known bases: ch0=8380 ch1=8390 ch2=83a0 ch3=83b0 ch5=83d0 ch6=83e0 ch7=83f0");
+        return 2;
+    }
+
+    unsigned ch = (unsigned)u32(av[2]);
+    uint16_t base = ddma_base_for_channel_safe(ch);
+    uint8_t r[16];
+
+    if (!base) {
+        printf("ddma-reg-dump-safe: invalid/unsupported channel %u\n", ch);
+        return 2;
+    }
+
+    for (unsigned i = 0; i < 16; i++) {
+        if (ddma_read_reg8_safe(h, base, (uint8_t)i, &r[i])) return 1;
+    }
+
+    printf("ddma-reg-dump-safe ch=%u base=0x%04x\n", ch, base);
+    printf("  raw:");
+    for (unsigned i = 0; i < 16; i++) {
+        printf(" %02x", r[i]);
+    }
+    printf("\n");
+
+    printf("  +00..+03 phys/log bytes? : %02x %02x %02x %02x  le32=0x%08x\n",
+           r[0], r[1], r[2], r[3], ddma_le32_from_regs(r, 0));
+    printf("  +04..+05 count/end?      : %02x %02x        le16=0x%04x\n",
+           r[4], r[5], ddma_le16_from_regs(r, 4));
+    printf("  +06 +07                 : %02x %02x\n", r[6], r[7]);
+    printf("  +08 cmd                 : 0x%02x\n", r[8]);
+    printf("  +09                     : 0x%02x\n", r[9]);
+    printf("  +0a                     : 0x%02x\n", r[10]);
+    printf("  +0b mode                : 0x%02x\n", r[11]);
+    printf("  +0c                     : 0x%02x\n", r[12]);
+    printf("  +0d status?/mask?       : 0x%02x\n", r[13]);
+    printf("  +0e                     : 0x%02x\n", r[14]);
+    printf("  +0f terminal/status?    : 0x%02x\n", r[15]);
+
+    printf("  bit hints:\n");
+    printf("    cmd bit2=%u bit3=%u raw=0x%02x\n", (r[8] >> 2) & 1, (r[8] >> 3) & 1, r[8]);
+    printf("    mode raw=0x%02x status/raw0f=0x%02x\n", r[11], r[15]);
+
+    return 0;
+}
+
+static int cmd_ddma_reg_poke_safe(HANDLE h, int ac, char **av)
+{
+    if (ac < 5) {
+        puts("ddma-reg-poke-safe <channel> <offset> <value>");
+        puts("Careful: raw one-byte write to IT8888 DDMA register window.");
+        return 2;
+    }
+
+    unsigned ch = (unsigned)u32(av[2]);
+    uint32_t off32 = u32(av[3]);
+    uint8_t value = (uint8_t)u32(av[4]);
+    uint16_t base = ddma_base_for_channel_safe(ch);
+    uint8_t before = 0, after = 0;
+
+    if (!base || off32 > 0x0f) {
+        printf("ddma-reg-poke-safe: invalid ch/off ch=%u off=0x%x\n", ch, off32);
+        return 2;
+    }
+
+    if (ddma_read_reg8_safe(h, base, (uint8_t)off32, &before)) return 1;
+    if (ddma_write_reg8_safe(h, base, (uint8_t)off32, value)) return 1;
+    if (ddma_read_reg8_safe(h, base, (uint8_t)off32, &after)) return 1;
+
+    printf("ddma-reg-poke-safe ch=%u base=0x%04x off=0x%02x before=0x%02x write=0x%02x after=0x%02x\n",
+           ch, base, (unsigned)off32, before, value, after);
+
+    return 0;
+}
 static int cmd_simple(HANDLE h, DWORD code) {
   DWORD r;
   return ioctl(h, code, NULL, 0, NULL, 0, &r) ? 0 : 1;
@@ -6186,13 +6612,18 @@ else if (IS("gus-dram-unsigned-to-signed")) rc = cmd_gus_dram_unsigned_to_signed
 else if (IS("gus-gen-wave-addrmode-test-safe")) rc = cmd_gus_gen_wave_addrmode_test_safe(h, ac, av);
 else if (IS("gus-addrmode-sweep-safe")) rc = cmd_gus_addrmode_sweep_safe(h, ac, av);else if (IS("gus-gen-wave-addrmode-test-safe")) rc = cmd_gus_gen_wave_addrmode_test_safe(h, ac, av);
 else if (IS("gus-addrmode-sweep-safe")) rc = cmd_gus_addrmode_sweep_safe(h, ac, av);else if (IS("gus-const-test-safe")) rc = cmd_gus_const_test_safe(h, ac, av);
-else if (IS("gus-gen-wave-period-test-safe")) rc = cmd_gus_gen_wave_period_test_safe(h, ac, av);else if (IS("gus-wav-play-guarded-poll-safe")) rc = cmd_gus_wav_play_guarded_poll_safe(h, ac, av);else if (IS("gus-wav-play-calibrated-safe")) rc = cmd_gus_wav_play_calibrated_safe(h, ac, av);else if (IS("gus-output-sweep-safe")) rc = cmd_gus_output_sweep_safe(h, ac, av);else if (IS("gus-wav-play-loud-safe")) rc = cmd_gus_wav_play_loud_safe(h, ac, av);else if (IS("gus-wav-play-oldloud-loop-safe")) rc = cmd_gus_wav_play_oldloud_loop_safe(h, ac, av);else if (IS("gus-gf1addr-square-test-safe")) rc = cmd_gus_gf1addr_square_test_safe(h, ac, av);else if (IS("gus-wav-play-gf1addr-safe")) rc = cmd_gus_wav_play_gf1addr_safe(h, ac, av);else if (IS("gus-dram-hiaddr-test-safe")) rc = cmd_gus_dram_hiaddr_test_safe(h, ac, av);else if (IS("gus-wav-play64-gf1addr-safe")) rc = cmd_gus_wav_play64_gf1addr_safe(h, ac, av);else if (IS("gus-wav-play64-audition-safe")) rc = cmd_gus_wav_play64_audition_safe(h, ac, av);else if (IS("gus-wav-play64-quality-matrix-safe")) rc = cmd_gus_wav_play64_quality_matrix_safe(h, ac, av);else if (IS("gus-wav-play64-enc-audition-safe")) rc = cmd_gus_wav_play64_enc_audition_safe(h, ac, av);else if (IS("gus-wav-play64-clean-safe")) rc = cmd_gus_wav_play64_clean_safe(h, ac, av);else if (IS("gus-dram-hiaddr-mode-sweep-safe")) rc = cmd_gus_dram_hiaddr_mode_sweep_safe(h, ac, av);else if (IS("gus-wav-play-full-gf1-clean-safe")) rc = cmd_gus_wav_play_full_gf1_clean_safe(h, ac, av);else if (IS("gus-wav-upload-full-verify-safe")) rc = cmd_gus_wav_upload_full_verify_safe(h, ac, av);else if (IS("gus-play-safe")) rc = cmd_gus_play_safe_official(h, ac, av);else if (IS("gus-known-good-selftest-safe")) rc = cmd_gus_known_good_selftest_safe(h, ac, av);else {
+else if (IS("gus-gen-wave-period-test-safe")) rc = cmd_gus_gen_wave_period_test_safe(h, ac, av);else if (IS("gus-wav-play-guarded-poll-safe")) rc = cmd_gus_wav_play_guarded_poll_safe(h, ac, av);else if (IS("gus-wav-play-calibrated-safe")) rc = cmd_gus_wav_play_calibrated_safe(h, ac, av);else if (IS("gus-output-sweep-safe")) rc = cmd_gus_output_sweep_safe(h, ac, av);else if (IS("gus-wav-play-loud-safe")) rc = cmd_gus_wav_play_loud_safe(h, ac, av);else if (IS("gus-wav-play-oldloud-loop-safe")) rc = cmd_gus_wav_play_oldloud_loop_safe(h, ac, av);else if (IS("gus-gf1addr-square-test-safe")) rc = cmd_gus_gf1addr_square_test_safe(h, ac, av);else if (IS("gus-wav-play-gf1addr-safe")) rc = cmd_gus_wav_play_gf1addr_safe(h, ac, av);else if (IS("gus-dram-hiaddr-test-safe")) rc = cmd_gus_dram_hiaddr_test_safe(h, ac, av);else if (IS("gus-wav-play64-gf1addr-safe")) rc = cmd_gus_wav_play64_gf1addr_safe(h, ac, av);else if (IS("gus-wav-play64-audition-safe")) rc = cmd_gus_wav_play64_audition_safe(h, ac, av);else if (IS("gus-wav-play64-quality-matrix-safe")) rc = cmd_gus_wav_play64_quality_matrix_safe(h, ac, av);else if (IS("gus-wav-play64-enc-audition-safe")) rc = cmd_gus_wav_play64_enc_audition_safe(h, ac, av);else if (IS("gus-wav-play64-clean-safe")) rc = cmd_gus_wav_play64_clean_safe(h, ac, av);else if (IS("gus-dram-hiaddr-mode-sweep-safe")) rc = cmd_gus_dram_hiaddr_mode_sweep_safe(h, ac, av);else if (IS("gus-wav-play-full-gf1-clean-safe")) rc = cmd_gus_wav_play_full_gf1_clean_safe(h, ac, av);else if (IS("gus-wav-upload-full-verify-safe")) rc = cmd_gus_wav_upload_full_verify_safe(h, ac, av);else if (IS("gus-play-safe")) rc = cmd_gus_play_safe_official(h, ac, av);else if (IS("gus-known-good-selftest-safe")) rc = cmd_gus_known_good_selftest_safe(h, ac, av);else if (IS("gus-dma-kick-debug-safe")) rc = cmd_gus_dma_kick_debug_safe(h, ac, av);else if (IS("gus-dma-state-safe")) rc = cmd_gus_dma_state_safe(h, ac, av);
+else if (IS("gus-dma-ctrl-probe-safe")) rc = cmd_gus_dma_ctrl_probe_safe(h, ac, av);else if (IS("ddma-reg-dump-safe")) rc = cmd_ddma_reg_dump_safe(h, ac, av);
+else if (IS("ddma-reg-poke-safe")) rc = cmd_ddma_reg_poke_safe(h, ac, av);else {
     usage();
     rc = 2;
   }
   CloseHandle(h);
   return rc;
 }
+
+
+
 
 
 

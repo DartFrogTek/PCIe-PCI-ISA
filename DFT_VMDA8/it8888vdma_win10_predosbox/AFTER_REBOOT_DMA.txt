@@ -1,0 +1,32 @@
+.\dist\Debug_x64\it8888ctl.exe panic-reset
+.\dist\Debug_x64\it8888ctl.exe clear-errors
+.\dist\Debug_x64\it8888ctl.exe init
+
+.\dist\Debug_x64\it8888ctl.exe bridge-iowin 0 28 3 0x8000 0x8fff
+.\dist\Debug_x64\it8888ctl.exe bridge-iowin 3 0 0 0x8000 0x8fff
+.\dist\Debug_x64\it8888ctl.exe cfgwrite 0x5C 4 0xe3008340
+.\dist\Debug_x64\it8888ctl.exe cfgwrite 0x60 4 0xe2008240
+
+.\dist\Debug_x64\it8888ctl.exe ddma-clear
+.\dist\Debug_x64\it8888ctl.exe dma-free
+.\dist\Debug_x64\it8888ctl.exe dma-alloc 65536
+.\dist\Debug_x64\it8888ctl.exe dma-info
+
+.\dist\Debug_x64\it8888ctl.exe dma-fill 0 4096 0xA5
+.\dist\Debug_x64\it8888ctl.exe dma-dump 0 64
+
+.\dist\Debug_x64\it8888ctl.exe ddma-clear
+.\dist\Debug_x64\it8888ctl.exe trace-clear
+.\dist\Debug_x64\it8888ctl.exe dma-fill 0 4096 0xA5
+.\dist\Debug_x64\it8888ctl.exe gus-dram-fill-safe 0x8240 0x0000 4096 0x00
+
+.\dist\Debug_x64\it8888ctl.exe ddma-arm 1 2 0 4096 0x2C0
+.\dist\Debug_x64\it8888ctl.exe ddma-start
+.\dist\Debug_x64\it8888ctl.exe ddma-status
+
+.\dist\Debug_x64\it8888ctl.exe gus-dma-state-safe 0x8240
+.\dist\Debug_x64\it8888ctl.exe gus-dma-ctrl-probe-safe 0x8240 0x01 500
+
+.\dist\Debug_x64\it8888ctl.exe ddma-status
+.\dist\Debug_x64\it8888ctl.exe dma-dump 0 64
+.\dist\Debug_x64\it8888ctl.exe gus-dram-dump 0x8240 0x0000 64
