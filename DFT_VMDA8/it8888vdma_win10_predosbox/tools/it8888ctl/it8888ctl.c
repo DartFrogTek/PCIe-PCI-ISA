@@ -116,17 +116,84 @@ static int cmd_init(HANDLE h) {
 }
 static int cmd_dma_alloc(HANDLE h, int ac, char **av) {
   if (ac < 3) {
-    puts("dma-alloc <bytes>");
+    puts("dma-alloc <bytes> [flags]");
+    puts("  flags: 0x1 = below 16 MiB contiguous physical memory");
     return 2;
   }
-  IT8888_DMA_ALLOC_REQUEST in = {u32(av[2]), 0};
+  IT8888_DMA_ALLOC_REQUEST in = {u32(av[2]), (ac > 3) ? u32(av[3]) : 0};
   IT8888_DMA_INFO out;
   DWORD r;
   if (!ioctl(h, IOCTL_IT8888_DMA_ALLOC, &in, sizeof(in), &out, sizeof(out), &r))
     return 1;
-  printf("buf %u size %u logical 0x%llx kva 0x%llx\n", out.BufferId, out.Size,
+  printf("buf %u size %u logical 0x%llx kva 0x%llx%s\n",
+         out.BufferId, out.Size,
          (unsigned long long)out.LogicalAddress,
-         (unsigned long long)out.KernelVaForDebug);
+         (unsigned long long)out.KernelVaForDebug,
+         (in.Reserved & IT8888_DMA_ALLOC_FLAG_BELOW_16M) ?
+           ((out.LogicalAddress < 0x01000000ULL) ? " OK<16M" : " BAD>=16M") : "");
+  return 0;
+}
+
+static int cmd_dma_alloc_low(HANDLE h, int ac, char **av) {
+  if (ac < 3) {
+    puts("dma-alloc-low <bytes>");
+    return 2;
+  }
+  IT8888_DMA_ALLOC_REQUEST in = {u32(av[2]), IT8888_DMA_ALLOC_FLAG_BELOW_16M};
+  IT8888_DMA_INFO out;
+  DWORD r;
+  if (!ioctl(h, IOCTL_IT8888_DMA_ALLOC, &in, sizeof(in), &out, sizeof(out), &r))
+    return 1;
+  printf("LOW buf %u size %u logical 0x%llx kva 0x%llx %s\n",
+         out.BufferId, out.Size,
+         (unsigned long long)out.LogicalAddress,
+         (unsigned long long)out.KernelVaForDebug,
+         (out.LogicalAddress < 0x01000000ULL) ? "OK<16M" : "BAD>=16M");
+  return (out.LogicalAddress < 0x01000000ULL) ? 0 : 3;
+}
+
+static int cmd_dma_ramp(HANDLE h, int ac, char **av) {
+  if (ac < 4) {
+    puts("dma-ramp <offset> <count> [start] [step]");
+    puts("fills host DMA buffer through IOCTL_IT8888_DMA_WRITE with byte ramp");
+    puts("example: dma-ramp 0 4096");
+    return 2;
+  }
+
+  uint32_t offset = u32(av[2]);
+  uint32_t count = u32(av[3]);
+  uint8_t start = (ac > 4) ? (uint8_t)u32(av[4]) : 0x00;
+  uint8_t step = (ac > 5) ? (uint8_t)u32(av[5]) : 0x01;
+
+  if (count == 0 || count > IT8888_DMA_WRITE_MAX) {
+    fprintf(stderr, "count must be 1..%u\n", (unsigned)IT8888_DMA_WRITE_MAX);
+    return 2;
+  }
+
+  IT8888_DMA_WRITE *wr = (IT8888_DMA_WRITE*)calloc(1, sizeof(*wr));
+  if (!wr) {
+    fprintf(stderr, "out of memory\n");
+    return 1;
+  }
+
+  wr->Offset = offset;
+  wr->Count = count;
+
+  uint8_t v = start;
+  for (uint32_t i = 0; i < count; ++i) {
+    wr->Data[i] = v;
+    v = (uint8_t)(v + step);
+  }
+
+  DWORD r;
+  int ok = ioctl(h, IOCTL_IT8888_DMA_WRITE, wr, sizeof(*wr), NULL, 0, &r);
+  free(wr);
+
+  if (!ok)
+    return 1;
+
+  printf("dma-ramp offset=0x%x count=%u start=0x%02x step=0x%02x\n",
+         offset, count, start, step);
   return 0;
 }
 static int cmd_dma_info(HANDLE h) {
@@ -5444,7 +5511,7 @@ static int gus_verify_dram_pages_fullverify(HANDLE h, uint16_t base, uint32_t dr
         for (uint32_t ci = 0; ci < check_count; ci++) {
             uint32_t off = checks[ci];
             uint32_t cn = page_n - off;
-            uint32_t bad = 0;
+        uint32_t bad = 0;
             if (cn > sizeof(tmp)) cn = sizeof(tmp);
 
             if (gus_read_dram_bytes_fullverify(h, base, dram_addr + pos + off, tmp, cn)) return 1;
@@ -6352,6 +6419,91 @@ static int cmd_ddma_reg_poke_safe(HANDLE h, int ac, char **av)
 
     return 0;
 }
+
+/* DDMA safe register probing: only safe read offsets */
+static uint16_t ddma_tool_base_for_channel_safe(unsigned ch)
+{
+    switch (ch) {
+    case 0: return 0x8380;
+    case 1: return 0x8390;
+    case 2: return 0x83a0;
+    case 3: return 0x83b0;
+    case 5: return 0x83d0;
+    case 6: return 0x83e0;
+    case 7: return 0x83f0;
+    default: return 0;
+    }
+}
+
+static int ddma_tool_read_port8(HANDLE h, uint16_t port, uint8_t *out)
+{
+    IT8888_PORT_ACCESS a;
+    DWORD r;
+    memset(&a, 0, sizeof(a));
+    a.Port = port;
+    a.Width = 1;
+    if (!ioctl(h, IOCTL_IT8888_PORT_READ, &a, sizeof(a), &a, sizeof(a), &r))
+        return 1;
+    *out = (uint8_t)a.Value;
+    return 0;
+}
+
+static int cmd_ddma_reg_dump_safe_defined(HANDLE h, int ac, char **av)
+{
+    if (ac < 3) {
+        puts("ddma-reg-dump-safe <channel>");
+        return 2;
+    }
+
+    unsigned ch = (unsigned)u32(av[2]);
+    uint16_t base = ddma_tool_base_for_channel_safe(ch);
+    uint8_t v[16];
+    memset(v, 0, sizeof(v));
+
+    if (!base) {
+        printf("ddma-reg-dump-safe: unsupported channel %u\n", ch);
+        return 2;
+    }
+
+    for (int i = 0; i <= 5; i++) {
+        if (ddma_tool_read_port8(h, (uint16_t)(base + i), &v[i])) return 1;
+    }
+    if (ddma_tool_read_port8(h, (uint16_t)(base + 0x08), &v[0x08])) return 1;
+    if (ddma_tool_read_port8(h, (uint16_t)(base + 0x0f), &v[0x0f])) return 1;
+
+    printf("ddma-reg-dump-safe ch=%u base=0x%04x\n", ch, base);
+    printf("  +00..+03 addr/current? %02x %02x %02x %02x\n", v[0], v[1], v[2], v[3]);
+    printf("  +04..+05 count?        %02x %02x\n", v[4], v[5]);
+    printf("  +08 status             %02x\n", v[0x08]);
+    printf("  +0f mask               %02x\n", v[0x0f]);
+    printf("  note: +09 request and +0b mode are not read here.\n");
+    return 0;
+}
+
+static int cmd_ddma_probe_ch_safe_defined(HANDLE h, int ac, char **av)
+{
+    if (ac < 3) {
+        puts("ddma-probe-ch-safe <channel>");
+        return 2;
+    }
+
+    unsigned ch = (unsigned)u32(av[2]);
+    uint16_t base = ddma_tool_base_for_channel_safe(ch);
+    uint8_t status = 0, mask = 0;
+
+    if (!base) {
+        printf("ddma-probe-ch-safe: unsupported channel %u\n", ch);
+        return 2;
+    }
+
+    if (ddma_tool_read_port8(h, (uint16_t)(base + 0x08), &status)) return 1;
+    if (ddma_tool_read_port8(h, (uint16_t)(base + 0x0f), &mask)) return 1;
+
+    printf("ddma-ch%u base=0x%04x status[08]=0x%02x mask[0f]=0x%02x\n",
+           ch, base, status, mask);
+    printf("note: +09 request and +0b mode are undefined/write-only on read; skipped.\n");
+    return 0;
+}
 static int cmd_simple(HANDLE h, DWORD code) {
   DWORD r;
   return ioctl(h, code, NULL, 0, NULL, 0, &r) ? 0 : 1;
@@ -6501,11 +6653,1048 @@ static int cmd_trace(HANDLE h) {
   }
   return 0;
 }
+
+/* ------------------------------------------------------------------------- */
+/* Official low-memory GUS DDMA landing test                                  */
+/* ------------------------------------------------------------------------- */
+
+static int land_port_out8(HANDLE h, uint16_t port, uint8_t value)
+{
+    IT8888_PORT_ACCESS a;
+    DWORD r;
+    memset(&a, 0, sizeof(a));
+    a.Port = port;
+    a.Width = 1;
+    a.Value = value;
+    return ioctl(h, IOCTL_IT8888_PORT_WRITE, &a, sizeof(a), NULL, 0, &r) ? 0 : 1;
+}
+
+static int land_port_in8(HANDLE h, uint16_t port, uint8_t *value)
+{
+    IT8888_PORT_ACCESS a;
+    DWORD r;
+    memset(&a, 0, sizeof(a));
+    a.Port = port;
+    a.Width = 1;
+    if (!ioctl(h, IOCTL_IT8888_PORT_READ, &a, sizeof(a), &a, sizeof(a), &r))
+        return 1;
+    *value = (uint8_t)a.Value;
+    return 0;
+}
+
+static int land_gus_sel(HANDLE h, uint16_t base, uint8_t reg)
+{
+    return land_port_out8(h, (uint16_t)(base + 0x103), reg);
+}
+
+static int land_gus_write16(HANDLE h, uint16_t base, uint8_t reg, uint16_t value)
+{
+    if (land_gus_sel(h, base, reg)) return 1;
+    if (land_port_out8(h, (uint16_t)(base + 0x104), (uint8_t)(value & 0xff))) return 1;
+    if (land_port_out8(h, (uint16_t)(base + 0x105), (uint8_t)(value >> 8))) return 1;
+    return 0;
+}
+
+static int land_gus_write_hi8(HANDLE h, uint16_t base, uint8_t reg, uint8_t value)
+{
+    if (land_gus_sel(h, base, reg)) return 1;
+    if (land_port_out8(h, (uint16_t)(base + 0x105), value)) return 1;
+    return 0;
+}
+
+/*
+   CPU DRAM port access used by the already-proven safe GUS DRAM path:
+     reg43 = low 16 address
+     reg44 = high 16 address
+     base+0x107 = DRAM data port, auto-incrementing
+*/
+static int land_gus_set_dram_addr(HANDLE h, uint16_t base, uint32_t addr)
+{
+    if (land_gus_write16(h, base, 0x43, (uint16_t)(addr & 0xffff))) return 1;
+    if (land_gus_write16(h, base, 0x44, (uint16_t)((addr >> 16) & 0xffff))) return 1;
+    return 0;
+}
+
+static int land_gus_dram_fill(HANDLE h, uint16_t base, uint32_t addr, uint32_t count, uint8_t value)
+{
+    /*
+       Do NOT assume the GF1 DRAM data port auto-increments on write.
+
+       After land_gus_dram_read() was fixed to use per-byte addressing,
+       preclear exposed that this fill helper had the same bad assumption:
+       it was not clearing the whole requested window.
+
+       Use conservative per-byte addressing for correctness.
+    */
+    for (uint32_t i = 0; i < count; ++i) {
+        if (land_gus_set_dram_addr(h, base, addr + i)) return 1;
+        if (land_port_out8(h, (uint16_t)(base + 0x107), value)) return 1;
+    }
+    return 0;
+}
+
+static int land_gus_dram_read(HANDLE h, uint16_t base, uint32_t addr, uint8_t *buf, uint32_t count)
+{
+    /*
+       Do NOT assume the GF1 DRAM read port auto-increments.
+
+       Empirical result:
+         - external gus-dram-dump showed correct changing bytes
+         - this helper, when it set address once and read repeatedly, returned
+           the first byte over and over: fc fc fc fc ...
+
+       So for verification, use the conservative proven behavior: set the DRAM
+       address for each byte, then read one byte from base+0x107.
+    */
+    for (uint32_t i = 0; i < count; ++i) {
+        if (land_gus_set_dram_addr(h, base, addr + i)) return 1;
+        if (land_port_in8(h, (uint16_t)(base + 0x107), &buf[i])) return 1;
+    }
+    return 0;
+}
+
+/*
+   GUS DMA address uses the observed GF1 DMA address register format:
+     dram byte address 0x000000 -> reg42 0x0000
+     dram byte address 0x000100 -> reg42 0x0010
+   So program reg42 = dram >> 4 for the low part.  Keep reg44 as the high
+   extension for larger addresses.  This matches the successful landing tests.
+*/
+static int land_gus_dma_kick_writeonly(HANDLE h, uint16_t base, uint32_t dram, uint8_t ctrl, uint32_t settle_ms)
+{
+    uint32_t gf1_dma_addr = dram >> 4;
+    uint16_t lo = (uint16_t)(gf1_dma_addr & 0xffff);
+    uint16_t hi = (uint16_t)((gf1_dma_addr >> 16) & 0xffff);
+
+    if (land_gus_write_hi8(h, base, 0x41, 0x00)) return 1;
+    if (land_gus_write16(h, base, 0x42, lo)) return 1;
+    if (land_gus_write16(h, base, 0x44, hi)) return 1;
+    if (land_gus_write_hi8(h, base, 0x41, ctrl)) return 1;
+
+    Sleep(settle_ms);
+    return 0;
+}
+
+static void land_print_first_bytes(uint32_t addr, const uint8_t *buf, uint32_t count)
+{
+    uint32_t n = count < 64 ? count : 64;
+    for (uint32_t i = 0; i < n; i += 16) {
+        printf("%06x: ", addr + i);
+        for (uint32_t j = 0; j < 16 && i + j < n; ++j)
+            printf("%02x ", buf[i + j]);
+        printf("\n");
+    }
+}
+
+static int cmd_gus_ddma_land_low_safe(HANDLE h, int ac, char **av)
+{
+    if (ac < 6) {
+        puts("gus-ddma-land-low-safe <gus_base> <dram_addr> <count> <marker> [channel] [ctrl] [settle_ms]");
+        puts("example: gus-ddma-land-low-safe 0x8240 0x0100 256 0x5A");
+        puts("requires prior: dma-alloc-low 65536");
+        return 2;
+    }
+
+    uint16_t base = (uint16_t)u32(av[2]);
+    uint32_t dram = u32(av[3]);
+    uint32_t count = u32(av[4]);
+    uint8_t marker = (uint8_t)u32(av[5]);
+    uint8_t ch = (ac > 6) ? (uint8_t)u32(av[6]) : 1;
+    uint8_t ctrl = (ac > 7) ? (uint8_t)u32(av[7]) : 0x01;
+    uint32_t settle_ms = (ac > 8) ? u32(av[8]) : 500;
+
+    if (count == 0 || count > 4096) {
+        fprintf(stderr, "count must be 1..4096 for safe bring-up\n");
+        return 2;
+    }
+    if (settle_ms > 2000) settle_ms = 2000;
+
+    printf("gus-ddma-land-low-safe gus-ddma-wav-load-low-safe base=0x%04x dram=0x%06x count=%u marker=0x%02x ch=%u ctrl=0x%02x settle=%ums\n",
+           base, dram, count, marker, ch, ctrl, settle_ms);
+
+    DWORD r;
+
+    IT8888_DMA_INFO info;
+    memset(&info, 0, sizeof(info));
+    if (!ioctl(h, IOCTL_IT8888_DMA_INFO, NULL, 0, &info, sizeof(info), &r))
+        return 1;
+
+    printf("dma-info: logical=0x%llx size=%u kva=0x%llx\n",
+           (unsigned long long)info.LogicalAddress,
+           info.Size,
+           (unsigned long long)info.KernelVaForDebug);
+
+    if (info.Size < count || info.LogicalAddress >= 0x01000000ULL) {
+        fprintf(stderr, "ERROR: need existing low DMA buffer below 16MiB; run dma-alloc-low 65536 first\n");
+        return 3;
+    }
+
+    IT8888_DMA_MEMOP fill;
+    memset(&fill, 0, sizeof(fill));
+    fill.Offset = 0;
+    fill.Count = count;
+    fill.Value = marker;
+    if (!ioctl(h, IOCTL_IT8888_DMA_FILL, &fill, sizeof(fill), NULL, 0, &r))
+        return 1;
+    printf("host dma filled offset=0 count=%u value=0x%02x\n", count, marker);
+
+    printf("clearing GUS DRAM target with 0x00...\n");
+    if (land_gus_dram_fill(h, base, dram, count, 0x00))
+        return 1;
+
+    uint8_t pre[4096];
+    memset(pre, 0, sizeof(pre));
+    if (land_gus_dram_read(h, base, dram, pre, count))
+        return 1;
+
+    uint32_t pre_bad = 0;
+    for (uint32_t i = 0; i < count; ++i) {
+        if (pre[i] != 0x00) pre_bad++;
+    }
+    printf("preclear verify bad=%u\n", pre_bad);
+    if (pre_bad) {
+        printf("preclear first bytes:\n");
+        land_print_first_bytes(dram, pre, count);
+        return 4;
+    }
+
+    if (!ioctl(h, IOCTL_IT8888_DDMA_CLEAR, NULL, 0, NULL, 0, &r))
+        return 1;
+
+    IT8888_DDMA_REQUEST q;
+    IT8888_DDMA_STATUS s;
+    memset(&q, 0, sizeof(q));
+    memset(&s, 0, sizeof(s));
+    q.Channel = ch;
+    q.Direction = 2;       /* system low DMA buffer -> GUS/PicoGUS DRAM */
+    q.BufferOffset = 0;
+    q.Count = count;
+    q.Flags = 0x280;
+
+    if (!ioctl(h, IOCTL_IT8888_DDMA_ARM, &q, sizeof(q), &s, sizeof(s), &r))
+        return 1;
+
+    printf("ddma armed ch=%u dir=%u base=0x%04x logical=0x%llx count=%u cmd=0x%02x mode=0x%02x flags=0x%08x\n",
+           s.Channel, s.Direction, s.Base,
+           (unsigned long long)s.LogicalAddress,
+           s.Count, s.LastCommand, s.ModeReg, s.Flags);
+
+    printf("kicking GUS DMA write-only...\n");
+    if (land_gus_dma_kick_writeonly(h, base, dram, ctrl, settle_ms))
+        return 1;
+
+    uint8_t got[4096];
+    memset(got, 0, sizeof(got));
+    if (land_gus_dram_read(h, base, dram, got, count))
+        return 1;
+        uint32_t bad = 0;
+    uint32_t first_bad = 0xffffffffu;
+    uint8_t first_actual = 0;
+    for (uint32_t i = 0; i < count; ++i) {
+        if (got[i] != marker) {
+            if (first_bad == 0xffffffffu) {
+                first_bad = i;
+                first_actual = got[i];
+            }
+            bad++;
+        }
+    }
+
+    printf("GUS DRAM first bytes after landing:\n");
+    land_print_first_bytes(dram, got, count);
+
+    if (bad) {
+        printf("verify FAILED total_bad=%u first_bad=0x%x actual=0x%02x expected=0x%02x\n",
+               bad, first_bad, first_actual, marker);
+        return 5;
+    }
+
+    printf("verify OK total_bad=0\n");
+    return 0;
+}
+
+/* ------------------------------------------------------------------------- */
+/* DMA-fed WAV -> low host DMA -> IT8888 DDMA -> GUS DRAM                     */
+/* ------------------------------------------------------------------------- */
+
+typedef struct WAV_LOW_INFO {
+    uint8_t *data;
+    uint32_t data_size;
+    uint16_t channels;
+    uint16_t bits;
+    uint32_t rate;
+    uint16_t block_align;
+} WAV_LOW_INFO;
+
+static uint16_t rd16le_low(const uint8_t *p)
+{
+    return (uint16_t)(p[0] | ((uint16_t)p[1] << 8));
+}
+
+static uint32_t rd32le_low(const uint8_t *p)
+{
+    return (uint32_t)p[0] |
+           ((uint32_t)p[1] << 8) |
+           ((uint32_t)p[2] << 16) |
+           ((uint32_t)p[3] << 24);
+}
+
+static int wav_low_load(const char *path, WAV_LOW_INFO *w)
+{
+    memset(w, 0, sizeof(*w));
+
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        fprintf(stderr, "failed to open wav: %s\n", path);
+        return 1;
+    }
+
+    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return 1; }
+    long flen_l = ftell(f);
+    if (flen_l < 44) { fclose(f); return 1; }
+    if (fseek(f, 0, SEEK_SET) != 0) { fclose(f); return 1; }
+
+    uint32_t flen = (uint32_t)flen_l;
+    uint8_t *file = (uint8_t*)malloc(flen);
+    if (!file) { fclose(f); return 1; }
+
+    if (fread(file, 1, flen, f) != flen) {
+        free(file);
+        fclose(f);
+        return 1;
+    }
+    fclose(f);
+
+    if (memcmp(file, "RIFF", 4) != 0 || memcmp(file + 8, "WAVE", 4) != 0) {
+        fprintf(stderr, "not RIFF/WAVE\n");
+        free(file);
+        return 1;
+    }
+
+    uint32_t pos = 12;
+    int got_fmt = 0;
+    int got_data = 0;
+    uint8_t *pcm = NULL;
+    uint32_t pcm_size = 0;
+
+    while (pos + 8 <= flen) {
+        uint8_t *ck = file + pos;
+        uint32_t sz = rd32le_low(ck + 4);
+        pos += 8;
+        if (pos + sz > flen) break;
+
+        if (memcmp(ck, "fmt ", 4) == 0 && sz >= 16) {
+            uint16_t fmt = rd16le_low(file + pos + 0);
+            w->channels = rd16le_low(file + pos + 2);
+            w->rate = rd32le_low(file + pos + 4);
+            w->block_align = rd16le_low(file + pos + 12);
+            w->bits = rd16le_low(file + pos + 14);
+
+            if (fmt != 1) {
+                fprintf(stderr, "only PCM WAV supported, fmt=%u\n", fmt);
+                free(file);
+                return 1;
+            }
+            if (!(w->channels == 1 || w->channels == 2) ||
+                !(w->bits == 8 || w->bits == 16) ||
+                w->block_align == 0) {
+                fprintf(stderr, "unsupported WAV: ch=%u bits=%u align=%u\n",
+                        w->channels, w->bits, w->block_align);
+                free(file);
+                return 1;
+            }
+            got_fmt = 1;
+        } else if (memcmp(ck, "data", 4) == 0) {
+            pcm_size = sz;
+            pcm = (uint8_t*)malloc(pcm_size);
+            if (!pcm) { free(file); return 1; }
+            memcpy(pcm, file + pos, pcm_size);
+            got_data = 1;
+        }
+
+        pos += sz + (sz & 1);
+    }
+
+    free(file);
+
+    if (!got_fmt || !got_data) {
+        fprintf(stderr, "missing fmt/data chunk\n");
+        if (pcm) free(pcm);
+        return 1;
+    }
+
+    w->data = pcm;
+    w->data_size = pcm_size;
+    return 0;
+}
+
+static void wav_low_free(WAV_LOW_INFO *w)
+{
+    if (w->data) free(w->data);
+    memset(w, 0, sizeof(*w));
+}
+
+static int clamp_i32_low(int v, int lo, int hi)
+{
+    if (v < lo) return lo;
+    if (v > hi) return hi;
+    return v;
+}
+
+static int wav_low_decode_xor80(const WAV_LOW_INFO *w,
+                                uint32_t src_offset_samples,
+                                uint32_t requested_samples,
+                                int gain_percent,
+                                uint8_t *out,
+                                uint32_t *out_count)
+{
+    uint32_t total_frames = w->data_size / w->block_align;
+    if (src_offset_samples >= total_frames) {
+        *out_count = 0;
+        return 0;
+    }
+
+    uint32_t avail = total_frames - src_offset_samples;
+    uint32_t n = requested_samples;
+    if (n == 0 || n > avail) n = avail;
+    if (n > IT8888_DMA_WRITE_MAX) n = IT8888_DMA_WRITE_MAX;
+
+    for (uint32_t i = 0; i < n; ++i) {
+        const uint8_t *p = w->data + (uint64_t)(src_offset_samples + i) * w->block_align;
+        int sample = 0;
+
+        if (w->bits == 8) {
+            int s0 = (int)p[0] - 128;
+            if (w->channels == 2) {
+                int s1 = (int)p[1] - 128;
+                sample = (s0 + s1) / 2;
+            } else {
+                sample = s0;
+            }
+        } else {
+            int16_t s0 = (int16_t)rd16le_low(p);
+            if (w->channels == 2) {
+                int16_t s1 = (int16_t)rd16le_low(p + 2);
+                sample = ((int)s0 + (int)s1) / 512; /* average then /256 */
+            } else {
+                sample = ((int)s0) / 256;
+            }
+        }
+
+        sample = (sample * gain_percent) / 100;
+        sample = clamp_i32_low(sample, -128, 127);
+
+        uint8_t unsigned_u8 = (uint8_t)(sample + 128);
+        out[i] = (uint8_t)(unsigned_u8 ^ 0x80);
+    }
+
+    *out_count = n;
+    return 0;
+}
+
+static uint32_t fnv1a_low(const uint8_t *p, uint32_t n)
+{
+    uint32_t h = 2166136261u;
+    for (uint32_t i = 0; i < n; ++i) {
+        h ^= p[i];
+        h *= 16777619u;
+    }
+    return h;
+}
+
+static int dma_write_low_buffer(HANDLE h, const uint8_t *buf, uint32_t count)
+{
+    if (count == 0 || count > IT8888_DMA_WRITE_MAX)
+        return 1;
+
+    IT8888_DMA_WRITE *wr = (IT8888_DMA_WRITE*)calloc(1, sizeof(IT8888_DMA_WRITE));
+    if (!wr)
+        return 1;
+
+    wr->Offset = 0;
+    wr->Count = count;
+    memcpy(wr->Data, buf, count);
+
+    DWORD r;
+    int rc = ioctl(h, IOCTL_IT8888_DMA_WRITE, wr, sizeof(*wr), NULL, 0, &r) ? 0 : 1;
+    free(wr);
+    return rc;
+}
+
+
+/* ------------------------------------------------------------------------- */
+/* Play already-DDMA-loaded GUS DRAM region using GF1 packed byte addresses    */
+/* ------------------------------------------------------------------------- */
+
+static void land_gf1_pack_addr(uint32_t byte_addr, uint16_t *msw, uint16_t *lsw)
+{
+    *msw = (uint16_t)((byte_addr >> 7) & 0xffff);
+    *lsw = (uint16_t)((byte_addr & 0x7f) << 9);
+}
+
+static int land_gus_set_active_voices(HANDLE h, uint16_t base, uint8_t active)
+{
+    /*
+       Matches the known-good clean/xor80 path active voice setting.
+       This is local/minimal and only used by the DDMA audition command.
+    */
+    if (land_port_out8(h, (uint16_t)(base + 0x103), 0x0e)) return 1;
+    if (land_port_out8(h, (uint16_t)(base + 0x105), active)) return 1;
+    return 0;
+}
+
+static int land_gus_select_voice(HANDLE h, uint16_t base, uint8_t voice)
+{
+    return land_port_out8(h, (uint16_t)(base + 0x102), voice);
+}
+
+static int land_gus_voice_stop_local(HANDLE h, uint16_t base, uint8_t voice)
+{
+    if (land_gus_select_voice(h, base, voice)) return 1;
+    if (land_gus_write_hi8(h, base, 0x00, 0x03)) return 1; /* stop voice */
+    if (land_gus_write_hi8(h, base, 0x0d, 0x03)) return 1; /* stop vol ramp */
+    return 0;
+}
+
+
+static int land_gus_enable_dac_local(HANDLE h, uint16_t base)
+{
+    /*
+       GF1 reset/DAC register is global register 0x4c.
+       The known-good path reports reset-readback=0x07.
+
+       Sequence used here:
+         0x01 : master reset deassert/known reset base state
+         delay
+         0x07 : master + DAC enable + IRQ enable bits, matching known-good readback
+
+       Do not read back here; this is a write-only/safe playback setup helper.
+    */
+    printf("play setup: enable GF1 DAC/reset reg 0x4c -> 0x07\n");
+
+    if (land_port_out8(h, (uint16_t)(base + 0x103), 0x4c)) return 1;
+    if (land_port_out8(h, (uint16_t)(base + 0x105), 0x01)) return 1;
+    Sleep(20);
+
+    if (land_port_out8(h, (uint16_t)(base + 0x103), 0x4c)) return 1;
+    if (land_port_out8(h, (uint16_t)(base + 0x105), 0x07)) return 1;
+    Sleep(20);
+
+    return 0;
+}
+static int land_gus_play_ddma_loaded_region(HANDLE h,
+                                            uint16_t base,
+                                            uint32_t dram,
+                                            uint32_t count,
+                                            uint16_t freq,
+                                            uint32_t play_ms)
+{
+    /*
+       Use the exact known-good playback stack.
+
+       The experimental local voice setup was silent even though it programmed
+       apparently reasonable registers and enabled DAC.  The known-good path
+       used by gus-wav-play-full-gf1-clean-safe / gus-play-safe is:
+
+         gus_enable_dac_sequence()
+         gus_start_voice_gf1addr(... ctrl=0x00 active=0x0d
+                                  vol=0xf000 volctrl=0x00 pan=0x08)
+
+       That helper also writes the additional volume-related GF1 registers
+       0x07 and 0x08 before 0x09, which the local helper did not.
+    */
+    if (count == 0)
+        return 1;
+
+    printf("playing DDMA-loaded region using known-good GF1 voice path: dram=0x%06x count=%u freq=0x%04x play_ms=%u\n",
+           dram, count, freq, play_ms);
+
+    if (gus_enable_dac_sequence(h, base))
+        return 1;
+
+    if (gus_start_voice_gf1addr(h,
+                                base,
+                                dram,
+                                count,
+                                freq,
+                                0x00,   /* ctrl: clean xor80/signed-style one-shot */
+                                0x0d,   /* active voices */
+                                0xf000, /* volume */
+                                0x00,   /* volume control: no ramp */
+                                0x08))  /* center pan */
+        return 1;
+
+    if (play_ms > 0) {
+        Sleep(play_ms);
+        /*
+           Prefer the established stop helper if present in this tree.
+           land_gus_voice_stop_local remains as fallback.
+        */
+#ifdef __cplusplus
+        /* unreachable in C build; keeps preprocessors quiet if imported elsewhere */
+#endif
+        if (land_gus_voice_stop_local(h, base, 0)) return 1;
+        printf("auto-stopped voice 0\n");
+    }
+
+    return 0;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Post-transfer DDMA quiesce: write-only, no DDMA/status reads                */
+/* ------------------------------------------------------------------------- */
+
+static int land_ddma_quiesce_channel(HANDLE h, uint16_t ddma_base, uint8_t ch)
+{
+    /*
+       IT8888 DDMA window mirrors 8237-ish registers.
+       +0F is the mask register.  0x04 | channel masks that channel.
+       +08 is command/status depending on direction; write 0x00 to leave command
+       neutral for the next bring-up transfer.
+
+       Do not read the DDMA window here. Raw/status reads have already proven
+       risky on this platform.
+    */
+    uint8_t mask = (uint8_t)(0x04u | (ch & 3u));
+
+    printf("post-quiesce: mask DDMA ch%u base=0x%04x mask=0x%02x\n",
+           (unsigned)(ch & 3u), ddma_base, mask);
+
+    if (land_port_out8(h, (uint16_t)(ddma_base + 0x0f), mask)) return 1;
+    if (land_port_out8(h, (uint16_t)(ddma_base + 0x08), 0x00)) return 1;
+
+    Sleep(100);
+    return 0;
+}
+static int cmd_gus_ddma_wav_load_low_safe(HANDLE h, int ac, char **av)
+{
+    if (ac < 5) {
+        puts("gus-ddma-wav-load-low-safe <gus_base> <wav> <dram_addr> [src_offset_samples] [samples] [gain] [freq] [ctrl] [settle_ms] [play_ms]");
+        puts("example: gus-ddma-wav-load-low-safe 0x8240 .\\test.wav 0x0100 0 4096 400 0x03c0 0x01 1500 1200");
+        puts("requires prior: dma-alloc-low 65536");
+        return 2;
+    }
+
+    uint16_t base = (uint16_t)u32(av[2]);
+    const char *wav_path = av[3];
+    uint32_t dram = u32(av[4]);
+    uint32_t src_off = (ac > 5) ? u32(av[5]) : 0;
+    uint32_t samples_req = (ac > 6) ? u32(av[6]) : 65536;
+    int gain = (ac > 7) ? (int)u32(av[7]) : 400;
+    uint32_t freq = (ac > 8) ? u32(av[8]) : 0x03c0;
+    uint8_t ctrl = (ac > 9) ? (uint8_t)u32(av[9]) : 0x01;
+    uint32_t settle_ms = (ac > 10) ? u32(av[10]) : 800;
+    uint32_t play_ms = (ac > 11) ? u32(av[11]) : 0;
+
+    (void)freq; /* reserved for the next patch: no-upload playback */
+
+    if (samples_req == 0 || samples_req > IT8888_DMA_WRITE_MAX)
+        samples_req = IT8888_DMA_WRITE_MAX;
+    if (settle_ms > 3000) settle_ms = 3000;
+    if (play_ms > 10000) play_ms = 10000;
+    if (gain < 1) gain = 1;
+    if (gain > 2000) gain = 2000;
+
+    printf("gus-ddma-wav-load-low-safe base=0x%04x wav=%s dram=0x%06x src_off=%u samples_req=%u gain=%d freq=0x%04x ctrl=0x%02x settle=%ums play_ms=%u\n",
+           base, wav_path, dram, src_off, samples_req, gain, freq, ctrl, settle_ms, play_ms);
+
+    DWORD r;
+    IT8888_DMA_INFO info;
+    memset(&info, 0, sizeof(info));
+    if (!ioctl(h, IOCTL_IT8888_DMA_INFO, NULL, 0, &info, sizeof(info), &r))
+        return 1;
+
+    printf("dma-info: logical=0x%llx size=%u kva=0x%llx\n",
+           (unsigned long long)info.LogicalAddress,
+           info.Size,
+           (unsigned long long)info.KernelVaForDebug);
+
+    if (info.Size < samples_req || info.LogicalAddress >= 0x01000000ULL) {
+        fprintf(stderr, "ERROR: need existing low DMA buffer below 16MiB; run dma-alloc-low 65536 first\n");
+        return 3;
+    }
+
+    WAV_LOW_INFO w;
+    if (wav_low_load(wav_path, &w))
+        return 1;
+
+    printf("wav: rate=%u channels=%u bits=%u data=%u block_align=%u\n",
+           w.rate, w.channels, w.bits, w.data_size, w.block_align);
+
+    uint8_t *encoded = (uint8_t*)malloc(IT8888_DMA_WRITE_MAX);
+    if (!encoded) {
+        wav_low_free(&w);
+        return 1;
+    }
+
+    uint32_t n = 0;
+    if (wav_low_decode_xor80(&w, src_off, samples_req, gain, encoded, &n) || n == 0) {
+        fprintf(stderr, "decode produced zero samples\n");
+        free(encoded);
+        wav_low_free(&w);
+        return 1;
+    }
+
+    wav_low_free(&w);
+
+    printf("encoded samples=%u hash=%08x first bytes:", n, fnv1a_low(encoded, n));
+    for (uint32_t i = 0; i < 16 && i < n; ++i)
+        printf(" %02x", encoded[i]);
+    printf("\n");
+        if (dma_write_low_buffer(h, encoded, n)) {
+        fprintf(stderr, "IOCTL_IT8888_DMA_WRITE failed\n");
+        free(encoded);
+        return 1;
+    }
+    printf("host low DMA buffer written with encoded WAV bytes\n");
+    printf("skipping target preclear; final exact DDMA verify is authoritative\n");
+if (!ioctl(h, IOCTL_IT8888_DDMA_CLEAR, NULL, 0, NULL, 0, &r)) {
+        free(encoded);
+        return 1;
+    }
+
+    IT8888_DDMA_REQUEST q;
+    IT8888_DDMA_STATUS s;
+    memset(&q, 0, sizeof(q));
+    memset(&s, 0, sizeof(s));
+    q.Channel = 1;
+    q.Direction = 2;
+    q.BufferOffset = 0;
+    q.Count = n;
+    q.Flags = 0x280;
+        if (!ioctl(h, IOCTL_IT8888_DDMA_ARM, &q, sizeof(q), &s, sizeof(s), &r)) {
+        free(encoded);
+        return 1;
+    }
+
+    printf("ddma armed ch=%u dir=%u base=0x%04x logical=0x%llx count=%u cmd=0x%02x mode=0x%02x flags=0x%08x\n",
+           s.Channel, s.Direction, s.Base,
+           (unsigned long long)s.LogicalAddress,
+           s.Count, s.LastCommand, s.ModeReg, s.Flags);
+
+    printf("kicking GUS DMA write-only...\n");
+        if (land_gus_dma_kick_writeonly(h, base, dram, ctrl, settle_ms)) {
+        free(encoded);
+        return 1;
+    }
+
+    /*
+       Important: on the real bridge/PicoGUS path, a readback immediately after
+       the GUS DMA kick can be a false negative even when the transfer lands a
+       moment later.  Do not raw-read DDMA status.  Just give the GUS side a
+       quiet post-DMA window, then retry DRAM verification.
+    */
+    Sleep(500);
+
+    uint8_t *got = (uint8_t*)malloc(n);
+    if (!got) {
+        free(encoded);
+        return 1;
+    }
+
+    uint32_t bad = 0xffffffffu;
+    uint32_t first_bad = 0xffffffffu;
+    uint32_t attempt = 0;
+
+    for (attempt = 1; attempt <= 10; ++attempt) {
+        if (land_gus_dram_read(h, base, dram, got, n)) {
+            free(got);
+            free(encoded);
+            return 1;
+        }
+
+        bad = 0;
+        first_bad = 0xffffffffu;
+        for (uint32_t i = 0; i < n; ++i) {
+            if (got[i] != encoded[i]) {
+                if (first_bad == 0xffffffffu) first_bad = i;
+                bad++;
+            }
+        }
+
+        printf("verify attempt %u: hash=%08x bad=%u first bytes:",
+               attempt, fnv1a_low(got, n), bad);
+        for (uint32_t i = 0; i < 16 && i < n; ++i)
+            printf(" %02x", got[i]);
+        printf("\n");
+
+        if (bad == 0)
+            break;
+
+        Sleep(500);
+    }
+
+    if (bad) {
+        printf("verify FAILED after %u attempts total_bad=%u first_bad=0x%x got=0x%02x expected=0x%02x\n",
+               attempt - 1, bad, first_bad,
+               first_bad == 0xffffffffu ? 0 : got[first_bad],
+               first_bad == 0xffffffffu ? 0 : encoded[first_bad]);
+        printf("NOTE: if an immediate external gus-dram-dump now matches the host buffer, this was still a timing/readback false-negative.\n");
+        free(got);
+        free(encoded);
+        return 5;
+    }
+
+    printf("verify OK total_bad=0 bytes=%u attempts=%u\n", n, attempt);
+    /* post-transfer quiesce disabled:
+       DDMA/GUS quiesce writes after a completed transfer can wedge this platform.
+       The verified single-chunk path should return immediately here.
+    */
+if (play_ms > 0) {
+        if (land_gus_play_ddma_loaded_region(h, base, dram, n, (uint16_t)freq, play_ms)) {
+            free(got);
+            free(encoded);
+            return 1;
+        }
+    } else {
+        printf("loaded only; pass play_ms > 0 to audition from dram=0x%06x bytes=%u\n", dram, n);
+    }
+free(got);
+    free(encoded);
+    return 0;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Chunked DMA-fed WAV upload: repeats proven <=4KiB DDMA primitive            */
+/* ------------------------------------------------------------------------- */
+
+static int cmd_gus_ddma_wav_chunked_low_safe(HANDLE h, int ac, char **av)
+{
+    if (ac < 5) {
+        puts("gus-ddma-wav-chunked-low-safe <gus_base> <wav> <dram_addr> [src_offset_samples] [total_samples] [gain] [freq] [ctrl] [settle_ms] [play_ms] [chunk_samples]");
+        puts("example: gus-ddma-wav-chunked-low-safe 0x8240 .\\test.wav 0x0100 0 32768 400 0x03c0 0x01 1200 1800 4096");
+        puts("requires prior: dma-alloc-low 65536");
+        return 2;
+    }
+
+    uint16_t base = (uint16_t)u32(av[2]);
+    const char *wav_path = av[3];
+    uint32_t dram0 = u32(av[4]);
+    uint32_t src_off0 = (ac > 5) ? u32(av[5]) : 0;
+    uint32_t total_req = (ac > 6) ? u32(av[6]) : 32768;
+    int gain = (ac > 7) ? (int)u32(av[7]) : 400;
+    uint32_t freq = (ac > 8) ? u32(av[8]) : 0x03c0;
+    uint8_t ctrl = (ac > 9) ? (uint8_t)u32(av[9]) : 0x01;
+    uint32_t settle_ms = (ac > 10) ? u32(av[10]) : 1200;
+    uint32_t play_ms = (ac > 11) ? u32(av[11]) : 0;
+    uint32_t chunk_req = (ac > 12) ? u32(av[12]) : 4096;
+
+    if (total_req == 0) total_req = 32768;
+    if (total_req > 65536) total_req = 65536;
+    if (chunk_req == 0 || chunk_req > 4096) chunk_req = 4096;
+    if (settle_ms > 3000) settle_ms = 3000;
+    if (play_ms > 10000) play_ms = 10000;
+    if (gain < 1) gain = 1;
+    if (gain > 2000) gain = 2000;
+
+    printf("gus-ddma-wav-chunked-low-safe base=0x%04x wav=%s dram=0x%06x src_off=%u total_req=%u chunk=%u gain=%d freq=0x%04x ctrl=0x%02x settle=%ums play_ms=%u\n",
+           base, wav_path, dram0, src_off0, total_req, chunk_req, gain, freq, ctrl, settle_ms, play_ms);
+
+    DWORD r;
+    IT8888_DMA_INFO info;
+    memset(&info, 0, sizeof(info));
+    if (!ioctl(h, IOCTL_IT8888_DMA_INFO, NULL, 0, &info, sizeof(info), &r))
+        return 1;
+
+    printf("dma-info: logical=0x%llx size=%u kva=0x%llx\n",
+           (unsigned long long)info.LogicalAddress,
+           info.Size,
+           (unsigned long long)info.KernelVaForDebug);
+
+    if (info.Size < chunk_req || info.LogicalAddress >= 0x01000000ULL) {
+        fprintf(stderr, "ERROR: need existing low DMA buffer below 16MiB; run dma-alloc-low 65536 first\n");
+        return 3;
+    }
+
+    WAV_LOW_INFO w;
+    if (wav_low_load(wav_path, &w))
+        return 1;
+
+    printf("wav: rate=%u channels=%u bits=%u data=%u block_align=%u\n",
+           w.rate, w.channels, w.bits, w.data_size, w.block_align);
+
+    uint8_t *encoded = (uint8_t*)malloc(chunk_req);
+    uint8_t *got = (uint8_t*)malloc(chunk_req);
+    if (!encoded || !got) {
+        if (encoded) free(encoded);
+        if (got) free(got);
+        wav_low_free(&w);
+        return 1;
+    }
+
+    uint32_t done = 0;
+    uint32_t chunk_index = 0;
+    uint32_t total_hash = 2166136261u;
+
+    while (done < total_req) {
+        uint32_t want = total_req - done;
+        if (want > chunk_req) want = chunk_req;
+
+        uint32_t n = 0;
+        if (wav_low_decode_xor80(&w, src_off0 + done, want, gain, encoded, &n) || n == 0) {
+            fprintf(stderr, "decode stopped at done=%u\n", done);
+            break;
+        }
+
+        uint32_t dram = dram0 + done;
+        uint32_t exp_hash = fnv1a_low(encoded, n);
+
+        printf("chunk %u: src=%u dram=0x%06x bytes=%u hash=%08x first:",
+               chunk_index, src_off0 + done, dram, n, exp_hash);
+        for (uint32_t i = 0; i < 8 && i < n; ++i)
+            printf(" %02x", encoded[i]);
+        printf("\n");
+        if (dma_write_low_buffer(h, encoded, n)) {
+            fprintf(stderr, "chunk %u: DMA_WRITE failed\n", chunk_index);
+            free(got);
+            free(encoded);
+            wav_low_free(&w);
+            return 1;
+        }
+        /* no pre-clear: exact post-DDMA verify is sufficient and safer */
+        if (!ioctl(h, IOCTL_IT8888_DDMA_CLEAR, NULL, 0, NULL, 0, &r)) {
+            fprintf(stderr, "chunk %u: DDMA_CLEAR failed\n", chunk_index);
+            free(got);
+            free(encoded);
+            wav_low_free(&w);
+            return 1;
+        }
+
+        IT8888_DDMA_REQUEST q;
+        IT8888_DDMA_STATUS s;
+        memset(&q, 0, sizeof(q));
+        memset(&s, 0, sizeof(s));
+        q.Channel = 1;
+        q.Direction = 2;
+        q.BufferOffset = 0;
+        q.Count = n;
+        q.Flags = 0x280;
+        if (!ioctl(h, IOCTL_IT8888_DDMA_ARM, &q, sizeof(q), &s, sizeof(s), &r)) {
+            fprintf(stderr, "chunk %u: DDMA_ARM failed\n", chunk_index);
+            free(got);
+            free(encoded);
+            wav_low_free(&w);
+            return 1;
+        }
+        if (land_gus_dma_kick_writeonly(h, base, dram, ctrl, settle_ms)) {
+            fprintf(stderr, "chunk %u: GUS DMA kick failed\n", chunk_index);
+            free(got);
+            free(encoded);
+            wav_low_free(&w);
+            return 1;
+        }
+
+        memset(got, 0, n);
+        if (land_gus_dram_read(h, base, dram, got, n)) {
+            fprintf(stderr, "chunk %u: GUS DRAM verify read failed\n", chunk_index);
+            free(got);
+            free(encoded);
+            wav_low_free(&w);
+            return 1;
+        }
+        uint32_t bad = 0;
+        uint32_t first_bad = 0xffffffffu;
+        for (uint32_t i = 0; i < n; ++i) {
+            if (got[i] != encoded[i]) {
+                if (first_bad == 0xffffffffu) first_bad = i;
+                bad++;
+            }
+        }
+
+        if (bad) {
+            printf("chunk %u verify FAILED bad=%u first_bad=0x%x got=0x%02x expected=0x%02x got_hash=%08x exp_hash=%08x\n",
+                   chunk_index, bad, first_bad,
+                   first_bad == 0xffffffffu ? 0 : got[first_bad],
+                   first_bad == 0xffffffffu ? 0 : encoded[first_bad],
+                   fnv1a_low(got, n), exp_hash);
+            free(got);
+            free(encoded);
+            wav_low_free(&w);
+            return 5;
+        }
+
+        for (uint32_t i = 0; i < n; ++i) {
+            total_hash ^= encoded[i];
+            total_hash *= 16777619u;
+        }
+
+        printf("chunk %u verify OK\n", chunk_index);
+
+        done += n;
+        chunk_index++;
+
+        if (n < want)
+            break;
+    }
+
+    wav_low_free(&w);
+
+    printf("chunked upload OK bytes=%u chunks=%u rolling_hash=%08x\n", done, chunk_index, total_hash);
+
+    if (done == 0) {
+        free(got);
+        free(encoded);
+        return 5;
+    }
+
+    if (play_ms > 0) {
+        if (play_ms > 0) {
+        if (land_gus_play_ddma_loaded_region(h, base, dram0, done, (uint16_t)freq, play_ms)) {
+            free(got);
+            free(encoded);
+            return 1;
+        }
+    }
+    }
+
+    free(got);
+    free(encoded);
+    return 0;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Play an already-loaded GUS/PicoGUS DRAM region                             */
+/* ------------------------------------------------------------------------- */
+
+static int cmd_gus_play_loaded_region_safe(HANDLE h, int ac, char **av)
+{
+    if (ac < 5) {
+        puts("gus-play-loaded-region-safe <gus_base> <dram_addr> <bytes> [freq] [play_ms]");
+        puts("example: gus-play-loaded-region-safe 0x8240 0x000100 4096 0x03c0 140");
+        puts("plays already-loaded GUS DRAM; does not upload");
+        return 2;
+    }
+
+    uint16_t base = (uint16_t)u32(av[2]);
+    uint32_t dram = u32(av[3]);
+    uint32_t bytes = u32(av[4]);
+    uint16_t freq = (ac > 5) ? (uint16_t)u32(av[5]) : 0x03c0;
+    uint32_t play_ms = (ac > 6) ? u32(av[6]) : 150;
+
+    if (bytes == 0) {
+        fprintf(stderr, "bytes must be nonzero\n");
+        return 2;
+    }
+    if (bytes > 65536) {
+        fprintf(stderr, "bytes capped to 65536 for safe audition\n");
+        bytes = 65536;
+    }
+    if (play_ms > 10000)
+        play_ms = 10000;
+
+    printf("gus-play-loaded-region-safe base=0x%04x dram=0x%06x bytes=%u freq=0x%04x play_ms=%u\n",
+           base, dram, bytes, freq, play_ms);
+
+    if (land_gus_play_ddma_loaded_region(h, base, dram, bytes, freq, play_ms))
+        return 1;
+
+    return 0;
+}
 static void usage(void) {
   puts("it8888ctl commands:\n info dumpcfg init cfgread cfgwrite in out "
-       "dma-alloc dma-info dma-fill dma-dump dma-check dma-free\n vreset vout vin vsnap vprepare\n "
+       "dma-alloc dma-alloc-low dma-info dma-fill dma-ramp dma-dump dma-check dma-free\n vreset vout vin vsnap vprepare\n "
        "ddma-arm ddma-start ddma-poll ddma-status ddma-clear\n irq-status "
-       "irq-ack wait-irq\n trace trace-clear panic-reset clear-errors gus-dram-poke gus-dram-peek gus-dram-dump gus-dram-fill gus-dram-ramp gus-dram-square gus-voice-test gus-voice-loop-test gus-audible-test gus-wav-info gus-wav-load gus-wav-play gus-wav-load-safe gus-wav-play-safe gus-wav-play-once-safe gus-wav-play-loop-safe gus-wav-analyze-window gus-wav-play-window-safe gus-wav-play-guarded-poll-safe gus-wav-play-calibrated-safe gus-wav-analyze-window-signed gus-wav-play-window-signed-safe gus-gen-wave-test-safe gus-const-test-safe gus-gen-wave-period-test-safe gus-gen-wave-addrmode-test-safe gus-addrmode-sweep-safe gus-dram-unsigned-to-signed gus-dram-fill-safe gus-dram-square-safe gus-voice-dump gus-voice-stop ddma-probe-ch-safe gus-ddma-sweep-watch-ch ddma-probe-all(DISABLED) gus-dma-status-loop(DISABLED) gus-ddma-sweep-watch(DISABLED) ddma-probe-ch-safe gus-ddma-sweep-watch-ch gus-reg-read16 gus-reg-write16 gus-dma-kick gus-dma-sweep ddma-probe-all(DISABLED) gus-dma-status-loop(DISABLED) gus-ddma-sweep-watch(DISABLED) ddma-probe-ch-safe gus-ddma-sweep-watch-ch");
+       "irq-ack wait-irq\n trace trace-clear panic-reset clear-errors gus-ddma-land-low-safe gus-ddma-wav-load-low-safe gus-play-loaded-region-safe gus-ddma-wav-chunked-low-safe gus-dram-poke gus-dram-peek gus-dram-dump gus-dram-fill gus-dram-ramp gus-dram-square gus-voice-test gus-voice-loop-test gus-audible-test gus-wav-info gus-wav-load gus-wav-play gus-wav-load-safe gus-wav-play-safe gus-wav-play-once-safe gus-wav-play-loop-safe gus-wav-analyze-window gus-wav-play-window-safe gus-wav-play-guarded-poll-safe gus-wav-play-calibrated-safe gus-wav-analyze-window-signed gus-wav-play-window-signed-safe gus-gen-wave-test-safe gus-const-test-safe gus-gen-wave-period-test-safe gus-gen-wave-addrmode-test-safe gus-addrmode-sweep-safe gus-dram-unsigned-to-signed gus-dram-fill-safe gus-dram-square-safe gus-voice-dump gus-voice-stop ddma-probe-ch-safe gus-ddma-sweep-watch-ch ddma-probe-all(DISABLED) gus-dma-status-loop(DISABLED) gus-ddma-sweep-watch(DISABLED) ddma-probe-ch-safe gus-ddma-sweep-watch-ch gus-reg-read16 gus-reg-write16 gus-dma-kick gus-dma-sweep ddma-probe-all(DISABLED) gus-dma-status-loop(DISABLED) gus-ddma-sweep-watch(DISABLED) ddma-probe-ch-safe gus-ddma-sweep-watch-ch");
 }
 int main(int ac, char **av) {
   if (ac < 2) {
@@ -6534,6 +7723,8 @@ int main(int ac, char **av) {
     rc = cmd_out(h, ac, av);
   else if (IS("dma-alloc"))
     rc = cmd_dma_alloc(h, ac, av);
+  else if (IS("dma-alloc-low"))
+    rc = cmd_dma_alloc_low(h, ac, av);
   else if (IS("dma-info"))
     rc = cmd_dma_info(h); else if (IS("dma-fill")) rc = cmd_dma_fill(h, ac, av); else if (IS("dma-dump")) rc = cmd_dma_dump(h, ac, av); else if (IS("dma-check")) rc = cmd_dma_check(h, ac, av);
   else if (IS("dma-free"))
@@ -6570,9 +7761,9 @@ int main(int ac, char **av) {
     rc = cmd_simple(h, IOCTL_IT8888_TRACE_CLEAR);
   else if (IS("panic-reset"))
     rc = cmd_simple(h, IOCTL_IT8888_PANIC_RESET);
-  else if (IS("clear-errors"))
+  else if (IS("clear-errors gus-ddma-land-low-safe gus-ddma-wav-load-low-safe gus-play-loaded-region-safe gus-ddma-wav-chunked-low-safe"))
     rc = cmd_simple(h, IOCTL_IT8888_CLEAR_ERRORS);
-  else if (IS("pgus-protocol")) rc = cmd_pgus_protocol(h, ac, av);
+else if (IS("pgus-protocol")) rc = cmd_pgus_protocol(h, ac, av);
 else if (IS("pgus-fwstring")) rc = cmd_pgus_fwstring(h, ac, av);
 else if (IS("pgus-magic")) rc = cmd_pgus_magic(h, ac, av);
 else if (IS("pgus-read8")) rc = cmd_pgus_read8(h, ac, av);
@@ -6590,7 +7781,7 @@ else if (IS("gus-reg-write16")) rc = cmd_gus_reg_write16(h, ac, av);
 else if (IS("gus-dma-kick")) rc = cmd_gus_dma_kick(h, ac, av);
 else if (IS("gus-dma-sweep")) rc = cmd_gus_dma_sweep(h, ac, av);else if (IS("ddma-probe-all")) rc = cmd_ddma_probe_all(h, ac, av);
 else if (IS("gus-dma-status-loop")) rc = cmd_gus_dma_status_loop(h, ac, av);
-else if (IS("gus-ddma-sweep-watch")) rc = cmd_gus_ddma_sweep_watch(h, ac, av);else if (IS("ddma-probe-ch-safe")) rc = cmd_ddma_probe_ch_safe(h, ac, av);
+else if (IS("gus-ddma-sweep-watch")) rc = cmd_gus_ddma_sweep_watch(h, ac, av);else if (IS("ddma-probe-ch-safe")) rc = cmd_ddma_probe_ch_safe_defined(h, ac, av);
 else if (IS("gus-ddma-sweep-watch-ch")) rc = cmd_gus_ddma_sweep_watch_ch(h, ac, av);else if (IS("gus-dram-poke")) rc = cmd_gus_dram_poke(h, ac, av);
 else if (IS("gus-dram-peek")) rc = cmd_gus_dram_peek(h, ac, av);
 else if (IS("gus-dram-dump")) rc = cmd_gus_dram_dump(h, ac, av);
@@ -6613,14 +7804,45 @@ else if (IS("gus-gen-wave-addrmode-test-safe")) rc = cmd_gus_gen_wave_addrmode_t
 else if (IS("gus-addrmode-sweep-safe")) rc = cmd_gus_addrmode_sweep_safe(h, ac, av);else if (IS("gus-gen-wave-addrmode-test-safe")) rc = cmd_gus_gen_wave_addrmode_test_safe(h, ac, av);
 else if (IS("gus-addrmode-sweep-safe")) rc = cmd_gus_addrmode_sweep_safe(h, ac, av);else if (IS("gus-const-test-safe")) rc = cmd_gus_const_test_safe(h, ac, av);
 else if (IS("gus-gen-wave-period-test-safe")) rc = cmd_gus_gen_wave_period_test_safe(h, ac, av);else if (IS("gus-wav-play-guarded-poll-safe")) rc = cmd_gus_wav_play_guarded_poll_safe(h, ac, av);else if (IS("gus-wav-play-calibrated-safe")) rc = cmd_gus_wav_play_calibrated_safe(h, ac, av);else if (IS("gus-output-sweep-safe")) rc = cmd_gus_output_sweep_safe(h, ac, av);else if (IS("gus-wav-play-loud-safe")) rc = cmd_gus_wav_play_loud_safe(h, ac, av);else if (IS("gus-wav-play-oldloud-loop-safe")) rc = cmd_gus_wav_play_oldloud_loop_safe(h, ac, av);else if (IS("gus-gf1addr-square-test-safe")) rc = cmd_gus_gf1addr_square_test_safe(h, ac, av);else if (IS("gus-wav-play-gf1addr-safe")) rc = cmd_gus_wav_play_gf1addr_safe(h, ac, av);else if (IS("gus-dram-hiaddr-test-safe")) rc = cmd_gus_dram_hiaddr_test_safe(h, ac, av);else if (IS("gus-wav-play64-gf1addr-safe")) rc = cmd_gus_wav_play64_gf1addr_safe(h, ac, av);else if (IS("gus-wav-play64-audition-safe")) rc = cmd_gus_wav_play64_audition_safe(h, ac, av);else if (IS("gus-wav-play64-quality-matrix-safe")) rc = cmd_gus_wav_play64_quality_matrix_safe(h, ac, av);else if (IS("gus-wav-play64-enc-audition-safe")) rc = cmd_gus_wav_play64_enc_audition_safe(h, ac, av);else if (IS("gus-wav-play64-clean-safe")) rc = cmd_gus_wav_play64_clean_safe(h, ac, av);else if (IS("gus-dram-hiaddr-mode-sweep-safe")) rc = cmd_gus_dram_hiaddr_mode_sweep_safe(h, ac, av);else if (IS("gus-wav-play-full-gf1-clean-safe")) rc = cmd_gus_wav_play_full_gf1_clean_safe(h, ac, av);else if (IS("gus-wav-upload-full-verify-safe")) rc = cmd_gus_wav_upload_full_verify_safe(h, ac, av);else if (IS("gus-play-safe")) rc = cmd_gus_play_safe_official(h, ac, av);else if (IS("gus-known-good-selftest-safe")) rc = cmd_gus_known_good_selftest_safe(h, ac, av);else if (IS("gus-dma-kick-debug-safe")) rc = cmd_gus_dma_kick_debug_safe(h, ac, av);else if (IS("gus-dma-state-safe")) rc = cmd_gus_dma_state_safe(h, ac, av);
-else if (IS("gus-dma-ctrl-probe-safe")) rc = cmd_gus_dma_ctrl_probe_safe(h, ac, av);else if (IS("ddma-reg-dump-safe")) rc = cmd_ddma_reg_dump_safe(h, ac, av);
-else if (IS("ddma-reg-poke-safe")) rc = cmd_ddma_reg_poke_safe(h, ac, av);else {
+else if (IS("gus-dma-ctrl-probe-safe")) rc = cmd_gus_dma_ctrl_probe_safe(h, ac, av);else if (IS("ddma-reg-dump-safe")) rc = cmd_ddma_reg_dump_safe_defined(h, ac, av);
+else if (IS("ddma-reg-poke-safe")) rc = cmd_ddma_reg_poke_safe(h, ac, av);  else if (IS("gus-ddma-land-low-safe"))
+    rc = cmd_gus_ddma_land_low_safe(h, ac, av);
+  else if (IS("gus-ddma-wav-load-low-safe"))
+    rc = cmd_gus_ddma_wav_load_low_safe(h, ac, av);
+  else if (IS("gus-play-loaded-region-safe"))
+    rc = cmd_gus_play_loaded_region_safe(h, ac, av);
+  else if (IS("gus-ddma-wav-chunked-low-safe"))
+    rc = cmd_gus_ddma_wav_chunked_low_safe(h, ac, av);
+  else if (IS("dma-ramp"))
+    rc = cmd_dma_ramp(h, ac, av);else {
     usage();
     rc = 2;
   }
   CloseHandle(h);
   return rc;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

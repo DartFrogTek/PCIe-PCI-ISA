@@ -1,0 +1,23 @@
+.\install_rebuild_it8888vdma_signed.ps1 Debug x64
+
+# 0. Fresh bridge / IT8888 init
+
+.\dist\Debug_x64\it8888ctl.exe init
+.\dist\Debug_x64\it8888ctl.exe bridge-iowin 0 28 3 0x8000 0x8fff
+.\dist\Debug_x64\it8888ctl.exe bridge-iowin 3 0 0 0x8000 0x8fff
+.\dist\Debug_x64\it8888ctl.exe cfgwrite 0x5C 4 0xe3008340
+.\dist\Debug_x64\it8888ctl.exe cfgwrite 0x60 4 0xe2008240
+
+powershell -ExecutionPolicy Bypass -File .\gus_ddma_upload_4k_reinit_safe.ps1 `
+  -Exe .\dist\Debug_x64\it8888ctl.exe `
+  -Base 0x8240 `
+  -Wav .\test.wav `
+  -StartDram 0x000100 `
+  -TotalSamples 32768 `
+  -ChunkSamples 4096 `
+  -Gain 400 `
+  -Freq 0x03c0 `
+  -PlayWholeRegion `
+  -PlayMsWhole 3000
+
+.\dist\Debug_x64\it8888ctl.exe gus-play-loaded-region-safe 0x8240 0x000100 16384 0x03c0 3000

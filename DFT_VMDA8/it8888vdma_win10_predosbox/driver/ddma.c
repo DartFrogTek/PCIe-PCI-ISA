@@ -65,15 +65,55 @@ VOID It8888DdmaStatus(PDEVICE_CONTEXT ctx, PIT8888_DDMA_STATUS s)
     s->LastPciStatus = cs >> 16;
 }
 
+
+static VOID DdmaFillCachedStatus(PDEVICE_CONTEXT ctx, PIT8888_DDMA_STATUS status)
+{
+    RtlZeroMemory(status, sizeof(*status));
+    status->Armed = ctx->Ddma.Armed;
+    status->Channel = ctx->Ddma.Channel;
+    status->Direction = ctx->Ddma.Direction;
+    status->LastCommand = ctx->Ddma.LastCommand;
+    status->Count = ctx->Ddma.Count;
+    status->Flags = ctx->Ddma.Flags;
+    status->LogicalAddress = ctx->Ddma.Logical.QuadPart;
+    status->Base = ctx->Ddma.Base;
+    status->StatusReg = ctx->Ddma.StatusReg;
+    status->ModeReg = ctx->Ddma.ModeReg;
+    status->CompletionCount = ctx->Ddma.CompletionCount;
+    status->ErrorCount = ctx->Ddma.ErrorCount;
+    status->LastPciStatus = 0; /* cached-only path: no post-arm PCI config read */
+}
 NTSTATUS It8888DdmaArm(PDEVICE_CONTEXT ctx, PIT8888_DDMA_REQUEST req, PIT8888_DDMA_STATUS status)
 {
-    if (!ctx->Dma.CommonBuffer)
+    NTSTATUS st = STATUS_SUCCESS;
+    PHYSICAL_ADDRESS addr;
+    ULONG countMinus1;
+    USHORT base = 0;
+    UCHAR cmd = 0x00;
+    UCHAR mode;
+
+#define TRY_DDMA(x) do { st = (x); if (!NT_SUCCESS(st)) goto out_unlock; } while (0)
+
+    /*
+       Accept both allocation backends:
+         - WDF common buffer: CommonBuffer != NULL, Va != NULL
+         - low ISA/8237 bring-up buffer: CommonBuffer == NULL, Va != NULL
+       The DDMA programming path only needs the bus/logical physical address,
+       size, and CPU VA for fill/dump helpers.
+    */
+    if (!ctx->Dma.Va || ctx->Dma.Size == 0)
         return STATUS_DEVICE_NOT_READY;
+
+    if (!req || !status)
+        return STATUS_INVALID_PARAMETER;
 
     if (req->Channel > 7 || req->Channel == 4)
         return STATUS_INVALID_PARAMETER;
 
-    if (req->Count == 0)
+    if (req->Direction > 2)
+        return STATUS_INVALID_PARAMETER;
+
+    if (req->Count == 0 || req->Count > 0x10000)
         return STATUS_INVALID_PARAMETER;
 
     if (req->BufferOffset > ctx->Dma.Size)
@@ -82,30 +122,12 @@ NTSTATUS It8888DdmaArm(PDEVICE_CONTEXT ctx, PIT8888_DDMA_REQUEST req, PIT8888_DD
     if (req->Count > (ctx->Dma.Size - req->BufferOffset))
         return STATUS_INVALID_PARAMETER;
 
-    PHYSICAL_ADDRESS addr;
     addr.QuadPart = ctx->Dma.Logical.QuadPart + req->BufferOffset;
+    countMinus1 = req->Count - 1;
+    mode = BuildMode(req->Channel, req->Direction);
 
-    ULONG countMinus1 = req->Count - 1;
-    UCHAR cmd = BuildCommand(req->Direction);
-    UCHAR mode = BuildMode(req->Channel, req->Direction);
-
-    /*
-        Dry-run must not touch the IT8888 hardware at all.
-
-        This is intentionally before:
-          - DdmaBase()
-          - WdfWaitLockAcquire(ctx->HwLock)
-          - It8888ApplyDefaultInit()
-          - WriteDdma8()/ReadDdma8()
-          - It8888DdmaStatus(), because that reads PCI status.
-
-        It validates and records the request only. This lets us test the
-        user/kernel IOCTL contract and common-buffer translation even when
-        DDMA windows are not configured yet and ctx->DdmaBase[ch] == 0.
-    */
     if (req->Flags & IT8888_DDMA_FLAG_DRY_RUN) {
         RtlZeroMemory(&ctx->Ddma, sizeof(ctx->Ddma));
-
         ctx->Ddma.Armed = 1;
         ctx->Ddma.Channel = req->Channel;
         ctx->Ddma.Direction = req->Direction;
@@ -116,67 +138,48 @@ NTSTATUS It8888DdmaArm(PDEVICE_CONTEXT ctx, PIT8888_DDMA_REQUEST req, PIT8888_DD
         ctx->Ddma.LastCommand = cmd;
         ctx->Ddma.ModeReg = mode;
         ctx->Ddma.StatusReg = 0;
-
-        It8888Trace(ctx,
-                    IT8888_TRACE_DDMA,
+        It8888Trace(ctx, IT8888_TRACE_DDMA,
                     0xD0000000u | req->Channel | ((ULONG)req->Direction << 8),
-                    addr.QuadPart,
-                    req->Count);
-
-        RtlZeroMemory(status, sizeof(*status));
-        status->Armed = ctx->Ddma.Armed;
-        status->Channel = ctx->Ddma.Channel;
-        status->Direction = ctx->Ddma.Direction;
-        status->LastCommand = ctx->Ddma.LastCommand;
-        status->Count = ctx->Ddma.Count;
-        status->Flags = ctx->Ddma.Flags;
-        status->LogicalAddress = ctx->Ddma.Logical.QuadPart;
-        status->Base = ctx->Ddma.Base;
-        status->StatusReg = ctx->Ddma.StatusReg;
-        status->ModeReg = ctx->Ddma.ModeReg;
-        status->CompletionCount = ctx->Ddma.CompletionCount;
-        status->ErrorCount = ctx->Ddma.ErrorCount;
-        status->LastPciStatus = 0;
-
+                    addr.QuadPart, req->Count);
+        DdmaFillCachedStatus(ctx, status);
         return STATUS_SUCCESS;
     }
 
-    USHORT base;
-    NTSTATUS st = DdmaBase(ctx, req->Channel, &base);
+    if (addr.QuadPart > 0xffffffffULL)
+        return STATUS_INVALID_PARAMETER;
+
+    if (!(req->Flags & IT8888_DDMA_FLAG_ALLOW_32BIT) &&
+        addr.QuadPart >= 0x01000000ULL)
+        return STATUS_INVALID_PARAMETER;
+
+    if (!(req->Flags & IT8888_DDMA_FLAG_NO_CFG_INIT)) {
+        st = It8888ApplyDefaultInit(ctx);
+        if (!NT_SUCCESS(st))
+            return st;
+    }
+
+    st = DdmaBase(ctx, req->Channel, &base);
     if (!NT_SUCCESS(st))
         return st;
 
-    /* DDMA_ARM_INIT_BEFORE_LOCK_FIXED:
-   It8888ApplyDefaultInit() takes ctx->HwLock internally.
-   Do not call it while this function already owns ctx->HwLock. */
-if (!(req->Flags & IT8888_DDMA_FLAG_NO_CFG_INIT)) {
-    st = It8888ApplyDefaultInit(ctx);
-    if (!NT_SUCCESS(st))
-        return st;
-}
-
-WdfWaitLockAcquire(ctx->HwLock, NULL);
-
-    
+    WdfWaitLockAcquire(ctx->HwLock, NULL);
 
     if (req->Flags & IT8888_DDMA_FLAG_MASTER_CLEAR)
-        WriteDdma8(ctx, base, IT8888_DDMA_REG_MASTERCLR, 0x00);
+        TRY_DDMA(WriteDdma8(ctx, base, IT8888_DDMA_REG_MASTERCLR, 0x00));
 
-    WriteDdma8(ctx, base, IT8888_DDMA_REG_ADDR0,  (UCHAR)(addr.QuadPart));
-    WriteDdma8(ctx, base, IT8888_DDMA_REG_ADDR1,  (UCHAR)(addr.QuadPart >> 8));
-    WriteDdma8(ctx, base, IT8888_DDMA_REG_ADDR2,  (UCHAR)(addr.QuadPart >> 16));
-    WriteDdma8(ctx, base, IT8888_DDMA_REG_ADDR3,  (UCHAR)(addr.QuadPart >> 24));
-    WriteDdma8(ctx, base, IT8888_DDMA_REG_COUNT0, (UCHAR)(countMinus1));
-    WriteDdma8(ctx, base, IT8888_DDMA_REG_COUNT1, (UCHAR)(countMinus1 >> 8));
-    WriteDdma8(ctx, base, IT8888_DDMA_REG_COMMAND, cmd);
-    WriteDdma8(ctx, base, IT8888_DDMA_REG_MODE, mode);
+    TRY_DDMA(WriteDdma8(ctx, base, IT8888_DDMA_REG_ADDR0,  (UCHAR)(addr.QuadPart)));
+    TRY_DDMA(WriteDdma8(ctx, base, IT8888_DDMA_REG_ADDR1,  (UCHAR)(addr.QuadPart >> 8)));
+    TRY_DDMA(WriteDdma8(ctx, base, IT8888_DDMA_REG_ADDR2,  (UCHAR)(addr.QuadPart >> 16)));
+    TRY_DDMA(WriteDdma8(ctx, base, IT8888_DDMA_REG_ADDR3,  (UCHAR)(addr.QuadPart >> 24)));
+    TRY_DDMA(WriteDdma8(ctx, base, IT8888_DDMA_REG_COUNT0, (UCHAR)(countMinus1)));
+    TRY_DDMA(WriteDdma8(ctx, base, IT8888_DDMA_REG_COUNT1, (UCHAR)(countMinus1 >> 8)));
+    TRY_DDMA(WriteDdma8(ctx, base, IT8888_DDMA_REG_COMMAND, cmd));
+    TRY_DDMA(WriteDdma8(ctx, base, IT8888_DDMA_REG_MODE, mode));
 
     if (req->Flags & IT8888_DDMA_FLAG_UNMASK)
-        WriteDdma8(ctx, base, IT8888_DDMA_REG_MASK, 0x00);
+        TRY_DDMA(WriteDdma8(ctx, base, IT8888_DDMA_REG_MASK, 0x00));
 
-    if (req->Flags & IT8888_DDMA_FLAG_SOFT_REQUEST)
-        WriteDdma8(ctx, base, IT8888_DDMA_REG_REQUEST, 0x04 | (req->Channel & 3));
-
+    RtlZeroMemory(&ctx->Ddma, sizeof(ctx->Ddma));
     ctx->Ddma.Armed = 1;
     ctx->Ddma.Channel = req->Channel;
     ctx->Ddma.Direction = req->Direction;
@@ -186,54 +189,82 @@ WdfWaitLockAcquire(ctx->HwLock, NULL);
     ctx->Ddma.Base = base;
     ctx->Ddma.LastCommand = cmd;
     ctx->Ddma.ModeReg = mode;
+    ctx->Ddma.StatusReg = 0;
 
-    ReadDdma8(ctx, base, IT8888_DDMA_REG_COMMAND, &ctx->Ddma.StatusReg);
-
-    It8888Trace(ctx,
-                IT8888_TRACE_DDMA,
+    It8888Trace(ctx, IT8888_TRACE_DDMA,
                 req->Channel | ((ULONG)req->Direction << 8),
-                addr.QuadPart,
-                req->Count);
+                addr.QuadPart, req->Count);
 
-    if (req->Flags & IT8888_DDMA_FLAG_POLL_AFTER) {
-        IT8888_DDMA_STATUS tmp;
-        It8888DdmaPoll(ctx, &tmp);
+out_unlock:
+    if (!NT_SUCCESS(st)) {
+        ctx->Ddma.ErrorCount++;
+        It8888Trace(ctx, IT8888_TRACE_ERROR, 0xDD000001u | req->Channel, (ULONGLONG)st, 0);
     }
-
-    It8888DdmaStatus(ctx, status);
-
+    DdmaFillCachedStatus(ctx, status);
     WdfWaitLockRelease(ctx->HwLock);
-    return STATUS_SUCCESS;
+#undef TRY_DDMA
+    return st;
 }
 
 NTSTATUS It8888DdmaStart(PDEVICE_CONTEXT ctx, PIT8888_DDMA_STATUS status)
 {
-  if (!ctx->Ddma.Armed)
-    return STATUS_DEVICE_NOT_READY;
-  if (ctx->Ddma.Flags & IT8888_DDMA_FLAG_SOFT_REQUEST)
-  {
-    WriteDdma8(ctx, ctx->Ddma.Base, IT8888_DDMA_REG_REQUEST,
-               0x04 | (ctx->Ddma.Channel & 3));
-  }
-  return It8888DdmaPoll(ctx, status);
+    NTSTATUS st = STATUS_SUCCESS;
+
+    if (!status)
+        return STATUS_INVALID_PARAMETER;
+
+    WdfWaitLockAcquire(ctx->HwLock, NULL);
+
+    if (!ctx->Ddma.Armed || ctx->Ddma.Base == 0) {
+        st = STATUS_DEVICE_NOT_READY;
+        goto out_unlock;
+    }
+
+    st = WriteDdma8(ctx, ctx->Ddma.Base, IT8888_DDMA_REG_MASK, 0x00);
+    if (!NT_SUCCESS(st)) {
+        ctx->Ddma.ErrorCount++;
+        It8888Trace(ctx, IT8888_TRACE_ERROR, 0xDD000002u | ctx->Ddma.Channel, (ULONGLONG)st, 0);
+        goto out_unlock;
+    }
+
+    It8888Trace(ctx, IT8888_TRACE_DDMA,
+                0x51000000u | ctx->Ddma.Channel | ((ULONG)ctx->Ddma.Direction << 8),
+                ctx->Ddma.Logical.QuadPart, ctx->Ddma.Count);
+
+out_unlock:
+    DdmaFillCachedStatus(ctx, status);
+    WdfWaitLockRelease(ctx->HwLock);
+    return st;
 }
 
 NTSTATUS It8888DdmaPoll(PDEVICE_CONTEXT ctx, PIT8888_DDMA_STATUS status)
 {
-  if (!ctx->Ddma.Armed)
-    return STATUS_DEVICE_NOT_READY;
-  UCHAR s = 0, m = 0;
-  ReadDdma8(ctx, ctx->Ddma.Base, IT8888_DDMA_REG_COMMAND, &s);
-  ReadDdma8(ctx, ctx->Ddma.Base, IT8888_DDMA_REG_MODE, &m);
-  ctx->Ddma.StatusReg = s;
-  ctx->Ddma.ModeReg = m;
-  ULONG cs = 0;
-  It8888PciRead(ctx, 0x04, 4, &cs);
-  if (cs & 0xF9000000u)
-    ctx->Ddma.ErrorCount++;
-  It8888DdmaStatus(ctx, status);
-  It8888Trace(ctx, IT8888_TRACE_DDMA, 0x80000000u | ctx->Ddma.Channel, s, cs);
-  return STATUS_SUCCESS;
+    NTSTATUS st = STATUS_SUCCESS;
+    UCHAR s = 0;
+
+    if (!status)
+        return STATUS_INVALID_PARAMETER;
+
+    WdfWaitLockAcquire(ctx->HwLock, NULL);
+
+    if (ctx->Ddma.Armed && ctx->Ddma.Base != 0) {
+        /*
+           Only +08 is valid as a status read. Do not read +0B; mode reads
+           are undefined on the 8237/DDMA map. ModeReg is our cached write.
+        */
+        st = ReadDdma8(ctx, ctx->Ddma.Base, IT8888_DDMA_REG_COMMAND, &s);
+        if (NT_SUCCESS(st)) {
+            ctx->Ddma.StatusReg = s;
+        } else {
+            ctx->Ddma.ErrorCount++;
+            It8888Trace(ctx, IT8888_TRACE_ERROR, 0xDD000003u | ctx->Ddma.Channel, (ULONGLONG)st, 0);
+        }
+    }
+
+    DdmaFillCachedStatus(ctx, status);
+
+    WdfWaitLockRelease(ctx->HwLock);
+    return st;
 }
 
 VOID It8888DdmaClear(PDEVICE_CONTEXT ctx)
@@ -335,4 +366,7 @@ NTSTATUS It8888DdmaProbe(PDEVICE_CONTEXT ctx, PIT8888_DDMA_PROBE probe)
     It8888Trace(ctx, IT8888_TRACE_DDMA, 0x50524F42u, base, count);
     return STATUS_SUCCESS;
 }
+
+
+
 

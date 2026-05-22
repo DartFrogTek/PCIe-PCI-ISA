@@ -105,7 +105,7 @@ case IOCTL_IT8888_BRIDGE_IOWIN: {
     {
       GET_IN(IT8888_DMA_ALLOC_REQUEST, in);
       GET_OUT(IT8888_DMA_INFO, out);
-      status = It8888DmaAllocate(ctx, in->Size, out);
+      status = It8888DmaAllocate(ctx, in->Size, in->Reserved, out);
       if (NT_SUCCESS(status))
         COMPLETE(sizeof(*out));
       break;
@@ -115,7 +115,11 @@ case IOCTL_IT8888_BRIDGE_IOWIN: {
     status = It8888DmaFill(ctx, in);
     break;
 }
-case IOCTL_IT8888_DMA_DUMP: {
+case IOCTL_IT8888_DMA_WRITE: {
+    GET_IN(IT8888_DMA_WRITE, in);
+    status = It8888DmaWrite(ctx, in);
+    break;
+}case IOCTL_IT8888_DMA_DUMP: {
     GET_IN(IT8888_DMA_DUMP, in);
     GET_OUT(IT8888_DMA_DUMP, out);
     *out = *in;
@@ -299,6 +303,8 @@ case IOCTL_IT8888_DDMA_PROBE: {
 
   WdfRequestCompleteWithInformation(Request, status, info);
 }
+
+
 
 
 

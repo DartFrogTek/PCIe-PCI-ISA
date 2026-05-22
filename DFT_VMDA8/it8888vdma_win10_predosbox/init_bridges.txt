@@ -1,0 +1,14 @@
+powershell -ExecutionPolicy Bypass -File .\.ps1
+.\install_rebuild_it8888vdma_signed.bat Debug x64
+
+.\dist\Debug_x64\it8888ctl.exe init
+.\dist\Debug_x64\it8888ctl.exe bridge-iowin 0 28 3 0x8000 0x8fff
+.\dist\Debug_x64\it8888ctl.exe bridge-iowin 3 0 0 0x8000 0x8fff
+.\dist\Debug_x64\it8888ctl.exe cfgwrite 0x5C 4 0xe3008340
+.\dist\Debug_x64\it8888ctl.exe cfgwrite 0x60 4 0xe2008240
+.\dist\Debug_x64\it8888ctl.exe info
+
+
+.\dist\Debug_x64\it8888ctl.exe dma-free
+.\dist\Debug_x64\it8888ctl.exe dma-alloc-low 65536
+.\dist\Debug_x64\it8888ctl.exe gus-ddma-wav-load-low-safe 0x8240 .\test.wav 0x10000 0 65536 400 0x03c0
