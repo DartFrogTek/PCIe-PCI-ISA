@@ -13,7 +13,7 @@
      - DMA buffer is ordinary DOS conventional memory, so physical addr < 1 MiB
 
    Build, Open Watcom:
-     wcl -ml -0 -bt=dos -fe=it8dos.exe dosmain.c dos_pci.c dos_io.c dos_dma.c
+     wcl -ml -3 -bt=dos -fe=it8dos.exe dosmain.c dos_pci.c dos_io.c dos_dma.c
    dos_ddma.c dos_vdma.c
 */
 

@@ -20,7 +20,11 @@ u16 it8_in16(u16 port) {
 u32 it8_in32(u16 port) {
 #if defined(__WATCOMC__)
   u32 v;
+  /* PCI config mechanism #1 needs 32-bit I/O through CF8/CFC.
+     The build script uses -3, and .386 makes the inline assembler accept EAX
+     even if an older/hand-run command accidentally defaults to 8086 mode. */
   __asm {
+        .386
         mov dx, port
         in  eax, dx
         mov dword ptr v, eax
@@ -53,6 +57,7 @@ void it8_out16(u16 port, u16 v) {
 void it8_out32(u16 port, u32 v) {
 #if defined(__WATCOMC__)
   __asm {
+        .386
         mov dx, port
         mov eax, dword ptr v
         out dx, eax

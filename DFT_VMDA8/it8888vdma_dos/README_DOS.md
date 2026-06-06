@@ -38,7 +38,32 @@ In DOS, the process can directly touch PCI config space and I/O ports, and the D
 
 ## Build
 
+after running `Build Environment.lnk` and inside the watcom build env:
+
+original sequence:
+```
+build_watcom.bat
+copy_to_dosfiles.bat
+run_dosbox_it8dos.bat
+```
+
+rapid testing:
+```
+build_and_copy.bat
+run_dosbox_it8dos.bat
+```
+
+or simply:
+```
+build_copy_run.bat
+```
+
+after dosbox is up and running execute 
+`it8dos info`
+
 Recommended compiler: Open Watcom C/C++.
+
+---
 
 ```bat
 build_watcom.bat
@@ -47,7 +72,7 @@ build_watcom.bat
 Equivalent command:
 
 ```bat
-wcl -ml -0 -bt=dos -fe=it8dos.exe dosmain.c dos_pci.c dos_io.c dos_dma.c dos_ddma.c dos_vdma.c
+wcl -ml -3 -bt=dos -fe=it8dos.exe dosmain.c dos_pci.c dos_io.c dos_dma.c dos_ddma.c dos_vdma.c
 ```
 
 Use real DOS or DOS 7/Win9x DOS mode first. DOSBox will not work for real hardware unless you are running on a DOSBox fork with real PCI/port passthrough.
@@ -124,3 +149,9 @@ The command-line `ddmaarm/ddmastart` commands allocate a DOS buffer, arm/start, 
 7. optionally verifies RAM/card contents.
 
 This source is structured so that command can be added in `dosmain.c` without touching the low-level library.
+
+---
+
+- The PCI bus scan loop now uses `unsigned int` loop counters. The old `u8 bus; bus < 256` loop never terminated because an 8-bit value can never become 256. In DOSBox this made `it8dos init` appear to do nothing.
+- The build uses `-3` because PCI config access uses 32-bit port I/O through `0xCF8/0xCFC`, so a 386+ real-mode target is the correct baseline.
+- `dos_dma.c` includes `<malloc.h>` for `_fmalloc/_ffree`.
