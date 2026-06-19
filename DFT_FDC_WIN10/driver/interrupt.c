@@ -10,7 +10,13 @@ DftFdcCreateInterrupt(
     PDEVICE_CONTEXT ctx = DftFdcGetContext(Device);
 
     WDF_INTERRUPT_CONFIG_INIT(&config, DftFdcEvtInterruptIsr, DftFdcEvtInterruptDpc);
-    config.PassiveHandling = FALSE;
+    /*
+     * Do not set config.PassiveHandling here. That field is not present in
+     * older KMDF headers such as 1.9, and this pass-1 driver uses the normal
+     * DIRQL ISR + DPC model anyway. Keeping this struct usage to the common
+     * WDF_INTERRUPT_CONFIG_INIT fields lets the same source build on the test
+     * PC even when the WDK selects KMDF 1.9.
+     */
 
     status = WdfInterruptCreate(Device,
                                 &config,
