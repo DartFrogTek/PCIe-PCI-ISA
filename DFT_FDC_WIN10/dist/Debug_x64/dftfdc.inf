@@ -1,0 +1,56 @@
+; dftfdc.inf - Pass 1 KMDF ISA 5.25" floppy diagnostic driver behind IT8888
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=System
+ClassGuid={4d36e97d-e325-11ce-bfc1-08002be10318}
+Provider=%ManufacturerName%
+DriverVer=06/18/2026,0.1.0.1
+CatalogFile=dftfdc.cat
+PnpLockdown=1
+
+[Manufacturer]
+%ManufacturerName%=Standard,NTamd64
+
+[Standard.NTamd64]
+%DftFdc.DeviceDesc%=DftFdc_Install,PCI\VEN_1283&DEV_8888
+%DftFdc.RootDeviceDesc%=DftFdc_Install,ROOT\DftFdc
+
+[DftFdc_Install.NT]
+CopyFiles=Drivers_Dir
+
+[Drivers_Dir]
+dftfdc.sys
+
+[DestinationDirs]
+Drivers_Dir=12
+
+[DftFdc_Install.NT.Services]
+AddService=dftfdc,%SPSVCINST_ASSOCSERVICE%,DftFdc_Service_Inst
+
+[DftFdc_Service_Inst]
+DisplayName=%DftFdc.ServiceDesc%
+ServiceType=1
+StartType=3
+ErrorControl=1
+ServiceBinary=%12%\dftfdc.sys
+
+[DftFdc_Install.NT.Wdf]
+KmdfService=dftfdc,DftFdc_WdfSect
+
+[DftFdc_WdfSect]
+KmdfLibraryVersion=1.35
+
+[SourceDisksNames]
+1=%DiskName%,,,
+
+[SourceDisksFiles]
+dftfdc.sys=1
+
+[Strings]
+SPSVCINST_ASSOCSERVICE=0x00000002
+ManufacturerName="DartFrogTek"
+DftFdc.DeviceDesc="Dart Frog IT8888 ISA 5.25 Floppy Adapter"
+DftFdc.RootDeviceDesc="Dart Frog IT8888 ISA 5.25 Floppy Adapter Root Test Device"
+DftFdc.ServiceDesc="Dart Frog IT8888 ISA 5.25 Floppy Pass-1 Driver"
+DiskName="DFT FDC Driver Disk"

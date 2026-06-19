@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{A8C5E740-6D6E-4A2B-9B20-DF1F2D7FDC01}</ProjectGuid>
+    <Keyword>MakeFileProj</Keyword>
+    <RootNamespace>dftfdc</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <MinimumVisualStudioVersion>17.0</MinimumVisualStudioVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <NMakeBuildCommandLine>cd /d &quot;$(MSBuildProjectDirectory)\..&quot; &amp;&amp; build_all_direct.bat Debug x64</NMakeBuildCommandLine>
+    <NMakeCleanCommandLine>if exist &quot;$(MSBuildProjectDirectory)\x64\Debug&quot; rmdir /s /q &quot;$(MSBuildProjectDirectory)\x64\Debug&quot; &amp; if exist &quot;$(MSBuildProjectDirectory)\dftfdc\x64\Debug&quot; rmdir /s /q &quot;$(MSBuildProjectDirectory)\dftfdc\x64\Debug&quot;</NMakeCleanCommandLine>
+    <NMakeReBuildCommandLine>$(NMakeCleanCommandLine) &amp; $(NMakeBuildCommandLine)</NMakeReBuildCommandLine>
+    <NMakeOutput>$(MSBuildProjectDirectory)\x64\Debug\dftfdc.sys</NMakeOutput>
+    <OutDir>$(MSBuildProjectDirectory)\x64\Debug\</OutDir>
+    <IntDir>$(MSBuildProjectDirectory)\dftfdc\x64\Debug\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <NMakeBuildCommandLine>cd /d &quot;$(MSBuildProjectDirectory)\..&quot; &amp;&amp; build_all_direct.bat Release x64</NMakeBuildCommandLine>
+    <NMakeCleanCommandLine>if exist &quot;$(MSBuildProjectDirectory)\x64\Release&quot; rmdir /s /q &quot;$(MSBuildProjectDirectory)\x64\Release&quot; &amp; if exist &quot;$(MSBuildProjectDirectory)\dftfdc\x64\Release&quot; rmdir /s /q &quot;$(MSBuildProjectDirectory)\dftfdc\x64\Release&quot;</NMakeCleanCommandLine>
+    <NMakeReBuildCommandLine>$(NMakeCleanCommandLine) &amp; $(NMakeBuildCommandLine)</NMakeReBuildCommandLine>
+    <NMakeOutput>$(MSBuildProjectDirectory)\x64\Release\dftfdc.sys</NMakeOutput>
+    <OutDir>$(MSBuildProjectDirectory)\x64\Release\</OutDir>
+    <IntDir>$(MSBuildProjectDirectory)\dftfdc\x64\Release\</IntDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <ClCompile Include="driver.c" />
+    <ClCompile Include="device.c" />
+    <ClCompile Include="queue.c" />
+    <ClCompile Include="interrupt.c" />
+    <ClCompile Include="trace.c" />
+    <ClCompile Include="it8888_pci.c" />
+    <ClCompile Include="it8888_io.c" />
+    <ClCompile Include="it8888_ddma.c" />
+    <ClCompile Include="fdc_hw.c" />
+    <ClCompile Include="fdc_cmd.c" />
+    <ClCompile Include="fdc_dma.c" />
+    <ClCompile Include="fdc_media.c" />
+    <ClCompile Include="fdc_rw.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="driver.h" />
+    <ClInclude Include="trace.h" />
+    <ClInclude Include="fdc_regs.h" />
+    <ClInclude Include="..\include\public.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="dftfdc.inf" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>
