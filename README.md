@@ -1,20 +1,17 @@
 # Potential PCIe to PCI to ISA BUS pathway.
+
+IT FREAKING WORKS ISA DDMA ON WIN 10 ~~~ PCM AUDIO PLAYING ON A REAL PICOGU ON WIN10 !!!
+
+A REAL WORLD FIRST!!! See https://www.vogons.org/viewtopic.php?t=111221 for more details.
+
+[![Youtube Video](https://github.com/DartFrogTek/PCIe-PCI-ISA/tree/main/thumbnail.png)](https://youtu.be/vemvmwXZD8I?si=CBGo3q4go7t-xuxj&t=32)
+
+---
+
 This repository contains information and files on how to potentially provide modern systems with an ISA bus including ISA DMA.
 
-More information is available on the "dISAppointment - LPC to ISA adapter - ISA on modern motherboard" thread.
-
+More even more historical dev information that's available on the "dISAppointment - LPC to ISA adapter - ISA on modern motherboard" thread.
 https://www.vogons.org/viewtopic.php?t=93291
-
-~~## PCIe support is likely a bust without custom address translation and software modification.~~
-~~https://dn720003.ca.archive.org/0/items/33.-oxford-legacy-address-ranges/33.Oxford_Legacy_Address_Ranges.pdf~~
-~~See page 40 of Vogons.~~
-
-~~## PCIe support likely requires custom address translation / software assistance~~
-~~Early testing suggests PCIe-to-PCI-to-ISA is not a transparent drop-in path for legacy ISA DMA. Some PCI/config or I/O traffic can reach the IT8888 through a PCIe-to-PCI bridge on a Z390/Windows 10 system, but other accesses appear not to reach the chip. ISA DMA likely requires a software layer that acts as a virtual 8237/DDMA master, programs the IT8888 DDMA slave, and uses controlled DMA-safe buffers or otherwise verified bus-master-accessible addresses.~~
-
-~~I am currently trying to look into getting source/reverse engineering the vdma8.exe from KYA on vogons to pursue this further.~~
-Go here to see current progress we have real data from a PicoGus through the entire chain!
-https://www.vogons.org/viewtopic.php?t=111221
 
 
 ## IT8888 based ISA8888 PCI to ISA Card
