@@ -1,6 +1,6 @@
 # Potential PCIe to PCI to ISA BUS pathway.
 
-IT FREAKING WORKS ~~~ ISA DDMA ON WIN 10 ~~~ PCM AUDIO PLAYING ON A REAL PICOGU ON WIN10 !!!
+IT FREAKING WORKS ~~~ ISA DDMA ON WIN 10 ~~~ PCM AUDIO PLAYING ON A REAL ISA PICOGUS ON WIN10 !!!
 
 A REAL WORLD FIRST!!! See https://www.vogons.org/viewtopic.php?t=111221 for more details.
 
