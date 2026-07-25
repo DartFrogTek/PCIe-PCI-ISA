@@ -1,10 +1,10 @@
 # Potential PCIe to PCI to ISA BUS pathway.
 
-IT FREAKING WORKS ISA DDMA ON WIN 10 ~~~ PCM AUDIO PLAYING ON A REAL PICOGU ON WIN10 !!!
+IT FREAKING WORKS ~~~ ISA DDMA ON WIN 10 ~~~ PCM AUDIO PLAYING ON A REAL PICOGU ON WIN10 !!!
 
 A REAL WORLD FIRST!!! See https://www.vogons.org/viewtopic.php?t=111221 for more details.
 
-[![Youtube Video](https://github.com/DartFrogTek/PCIe-PCI-ISA/tree/main/thumbnail.png)](https://youtu.be/vemvmwXZD8I?si=CBGo3q4go7t-xuxj&t=32)
+[![WORLD FIRST - PCIe - PCI - ISA - PicoGus - Windows 10 - Kernel Driver - PCM Audio](https://github.com/DartFrogTek/PCIe-PCI-ISA/blob/main/thumbnail.png)](https://youtu.be/vemvmwXZD8I?si=CBGo3q4go7t-xuxj&t=32)
 
 ---
 
